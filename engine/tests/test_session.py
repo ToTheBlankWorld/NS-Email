@@ -3,13 +3,14 @@
 from typing import Any
 
 import pytest
-from engine.core.session import EmailProtocol, Session
+from engine.core.session import Confidence, EmailProtocol, Orientation, Session
 from pydantic import ValidationError
 
 
 def build_session(**overrides: Any) -> Session:
     defaults: dict[str, Any] = {
-        "capture_id": "capture123",
+        "id": "session_" + "a" * 16,
+        "capture_id": "capture_aaaaaaaaaaaa",
         "client_ip": "10.10.0.23",
         "server_ip": "198.51.100.7",
         "client_port": 51520,
@@ -52,12 +53,16 @@ def test_session_builds_with_ipv4_and_ipv6_endpoints() -> None:
     assert str(session.server_ip) == "198.51.100.7"
 
 
-def test_reconstruction_flags_start_undetermined() -> None:
+def test_reconstruction_fields_start_undetermined() -> None:
     session = build_session()
 
     assert session.protocol is None
-    assert session.starttls_observed is None
+    assert session.confidence is Confidence.UNKNOWN
+    assert session.orientation is Orientation.UNKNOWN
     assert session.implicit_tls is None
+    assert session.starttls is None
+    assert session.events == []
+    assert session.complete is False
 
 
 @pytest.mark.parametrize("port", [65536, -1])
@@ -69,3 +74,9 @@ def test_rejects_out_of_range_ports(port: int) -> None:
 def test_rejects_invalid_ip_addresses() -> None:
     with pytest.raises(ValidationError):
         build_session(server_ip="999.10.1.1")
+
+
+def test_rejects_ids_that_are_not_flow_derived() -> None:
+    for bad_id in ["session_short", "random-id", "../etc/passwd", ""]:
+        with pytest.raises(ValidationError):
+            build_session(id=bad_id)

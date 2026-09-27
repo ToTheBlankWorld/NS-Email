@@ -11,9 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
-from app.routers import captures, health
+from app.routers import captures, health, sessions
+from app.services.analysis import CaptureAnalysisService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
+from app.store import SQLiteSessionStore
 
 logger = logging.getLogger("ns_email.app")
 
@@ -36,13 +38,20 @@ def _resolve_inspector(settings: Settings) -> CaptureInspector | None:
 def _configure_services(app: FastAPI, settings: Settings) -> None:
     storage = CaptureStorage(settings.capture_storage_dir)
     registry = SQLiteCaptureRegistry(storage.registry_path())
+    store = SQLiteSessionStore(storage.registry_path())
     app.state.capture_storage = storage
     app.state.capture_registry = registry
+    app.state.session_store = store
     app.state.ingestion_service = CaptureIngestionService(
         storage=storage,
         registry=registry,
         inspector=_resolve_inspector(settings),
         max_capture_bytes=settings.max_capture_bytes,
+    )
+    app.state.analysis_service = CaptureAnalysisService(
+        storage=storage,
+        registry=registry,
+        store=store,
     )
 
 
@@ -65,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(captures.router)
+    app.include_router(sessions.router)
     _configure_services(app, settings)
     return app
 

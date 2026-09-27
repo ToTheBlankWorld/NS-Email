@@ -86,7 +86,9 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
-"engine/tests/**" = ["S101"]
+"engine/tests/**" = ["S101", "S105"]
+# S105: the credential constants in test_imap_pop3_sessions.py are synthetic
+# fixtures whose absence from API/DB/log output is exactly what is asserted.
 # The packet inspector launches tshark with fixed argument arrays (never a
 # shell, never user-controlled strings), so subprocess use is reviewed here.
 "engine/ingestion/inspector.py" = ["S404", "S603"]
@@ -97,7 +99,17 @@ quote-style = "double"
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "backend"
-files = ["backend/app", "engine"]
+# Strict checking covers production code; test suites are lint-clean but
+# excluded from strict type checking deliberately.
+files = [
+  "backend/app",
+  "engine/__init__.py",
+  "engine/analysis.py",
+  "engine/core",
+  "engine/ingestion",
+  "engine/protocols",
+  "engine/transport",
+]
 strict = true
 pretty = true
 show_error_codes = true

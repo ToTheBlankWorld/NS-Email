@@ -40,6 +40,17 @@ export type InspectionInfo = {
   warnings: string[];
 };
 
+export type AnalysisStatus = "not_analyzed" | "completed" | "failed";
+
+export type AnalysisInfo = {
+  status: AnalysisStatus;
+  analyzed_at: string | null;
+  session_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  warnings: string[];
+};
+
 export type CaptureRecord = {
   id: string;
   filename: string;
@@ -55,6 +66,59 @@ export type CaptureRecord = {
   link_type: string | null;
   ingested_at: string;
   inspection: InspectionInfo;
+  analysis: AnalysisInfo | null;
+};
+
+export type AnalysisResult = {
+  capture_id: string;
+  status: "completed" | "failed";
+  sessions_found: number;
+  error_code: string | null;
+  error_message: string | null;
+};
+
+export type StarttlsObservation = {
+  advertised: boolean;
+  requested: boolean;
+  response_seen: boolean;
+  packet_number: number | null;
+  timestamp: string | null;
+};
+
+export type SessionEvent = {
+  seq: number;
+  type: string;
+  direction: string;
+  timestamp: string | null;
+  packet_numbers: number[];
+  detail: Record<string, string>;
+};
+
+export type SessionRecord = {
+  id: string;
+  capture_id: string;
+  protocol: string | null;
+  confidence: string;
+  orientation: string;
+  client_ip: string;
+  client_port: number;
+  server_ip: string;
+  server_port: number;
+  implicit_tls: boolean | null;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  packet_count: number;
+  bytes_client_to_server: number;
+  bytes_server_to_client: number;
+  complete: boolean;
+  completeness_reason: string | null;
+  retransmissions: number;
+  gap_count: number;
+  gap_bytes: number;
+  starttls: StarttlsObservation | null;
+  warnings: string[];
+  events?: SessionEvent[];
 };
 
 /** Structured API error: {"error": {"code", "message"}} plus transport codes. */
@@ -157,4 +221,44 @@ export async function getCapture(
   });
   if (!response.ok) throw await parseError(response);
   return (await response.json()) as CaptureRecord;
+}
+
+// ---------------------------------------------------------------------------
+// Analysis & sessions
+// ---------------------------------------------------------------------------
+
+/** Run session analysis for one capture (synchronous on the backend). */
+export async function analyzeCapture(captureId: string): Promise<AnalysisResult> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/analyze`,
+    { method: "POST", headers: { "Content-Type": "application/json" } },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AnalysisResult;
+}
+
+/** List reconstructed sessions for a capture (summaries, no timeline). */
+export async function listSessions(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<SessionRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/sessions`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as SessionRecord[];
+}
+
+/** Fetch one reconstructed session including its event timeline. */
+export async function getSession(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<SessionRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${encodeURIComponent(sessionId)}`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as SessionRecord;
 }

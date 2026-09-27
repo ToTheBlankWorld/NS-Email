@@ -12,7 +12,7 @@ import pytest
 from engine.core.capture import Capture, CaptureFormat, CaptureStatus
 from engine.core.certificate import CertificateEvidence
 from engine.core.findings import FindingCategory, FindingSeverity, SecurityFinding
-from engine.core.session import EmailProtocol, Session
+from engine.core.session import Confidence, EmailProtocol, Orientation, Session
 from engine.core.tls import KeyExchange, TLSHandshake, TLSVersion
 from pydantic import ValidationError
 
@@ -37,15 +37,23 @@ def sample_evidence() -> dict[str, Any]:
         link_type="Ethernet",
     )
     session = Session(
+        id="session_" + "0a1b" * 4,
         capture_id=capture.id,
         client_ip=ip_address("10.10.0.23"),
         server_ip=ip_address("198.51.100.7"),
         client_port=51520,
         server_port=993,
         protocol=EmailProtocol.IMAP,
+        confidence=Confidence.HIGH,
+        orientation=Orientation.CLIENT_SERVER,
         implicit_tls=True,
         started_at=T0,
         ended_at=T1,
+        duration_seconds=1.5,
+        packet_count=18,
+        bytes_client_to_server=256,
+        bytes_server_to_client=512,
+        complete=True,
     )
     handshake = TLSHandshake(
         session_id=session.id,

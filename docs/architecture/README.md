@@ -51,7 +51,9 @@ Deliberate constraints:
 ### `engine/` — forensic engine (Python)
 
 The analysis core. Stage 0 established `engine/core`, the typed evidence model layer;
-Stage 1 adds `engine/ingestion`, the evidence-acquisition layer.
+Stage 1 added `engine/ingestion` (evidence acquisition); Stage 2 adds
+`engine/transport` (packets, flows, reassembly) and `engine/protocols`
+(detection + session reconstruction), orchestrated by `engine/analysis`.
 
 | Model / module         | Purpose                                                            |
 | ---------------------- | ------------------------------------------------------------------ |
@@ -63,6 +65,10 @@ Stage 1 adds `engine/ingestion`, the evidence-acquisition layer.
 | `CertificateEvidence`  | X.509 facts observed on the wire (subject, validity, key, fingerprint) |
 | `SecurityFinding`      | A rule- or analysis-derived observation with severity and category  |
 | `engine.ingestion`     | Filename validation, magic-byte sniffing, streaming hashing, deterministic ids, capture inspection |
+| `SessionEvent` / `StarttlsObservation` | Timeline events with packet references; plaintext STARTTLS negotiation facts |
+| `engine.transport`     | Packet source (pure-Python pcap/pcapng), flow grouping, stream reassembly, orientation |
+| `engine.protocols`     | SMTP/IMAP/POP3 detection with evidence, session reconstruction, credential redaction |
+| `engine.analysis`      | Pipeline orchestration: packets → flows → sessions |
 
 Cross-cutting guarantees enforced by `engine/core/base.py`:
 
@@ -122,28 +128,51 @@ Storage layout:
     └── metadata.json
 ```
 
+### Capture analysis flow (Stage 2)
+
+```
+registered capture
+  ↓  PcapPacketSource (pure Python: pcap/pcapng, Ethernet/raw-IP, IPv4/TCP)
+PacketRecord stream (skips counted per reason — coverage is explicit)
+  ↓  FlowBuilder: canonical bidirectional 5-tuple
+Flow[]   session_id = session_<sha256(capture_id + flow)[:16]>
+  ↓  per-direction StreamAssembler (ISN-anchored reassembly)
+stream bytes + gaps + retransmissions + duplicates + FIN/RST
+  ↓  protocol detection (greetings + commands + ports → evidence, confidence)
+  ↓  orientation (SYN → service ports → greeting; else "unknown")
+  ↓  per-protocol reconstructors (SMTP/IMAP/POP3)
+Session[] with event timelines (every event cites its packet numbers)
+  ↓  SQLiteSessionStore (sessions · session_events · analysis tables)
+```
+
+Security properties of this stage:
+
+- Credential values (USER/PASS/AUTH/LOGIN/AUTHENTICATE arguments) are redacted to the
+  literal `redacted` at the parser boundary — before evidence objects exist. Message body
+  and multi-line data content is skipped, never stored.
+- STARTTLS/STLS is recorded as advertised/requested/response-seen plus a `tls_transition`
+  event; plaintext parsing stops at the boundary (the remainder is ciphertext).
+- Unknown orientation, missing segments, and unparseable data are recorded as unknown or
+  incomplete — never guessed.
+
 ### `frontend/` — workstation UI (Next.js)
 
-Dark-first, restrained forensic/SOC design language. Stage 0 shipped the shell; Stage 1
-adds real ingestion: the dashboard capture panel uploads with honest progress (bytes
-transferred → "validating and registering evidence…"), shows the evidence SHA-256 and
-inspection state, and `/captures` plus `/captures/<id>` provide the evidence list and
-detail views. No fake statistics, findings, or AI output.
+Dark-first, restrained forensic/SOC design language. The shell (Stage 0) grew real
+ingestion (Stage 1) and now analysis (Stage 2): the capture detail page offers one-click
+analysis with the real session count and protocol breakdown, a sessions table, and a
+session detail view with a per-event timeline and TLS-boundary section. No fake
+statistics, findings, or AI output.
 
-## Planned data flow
-
-The first stage of the pipeline is implemented; the rest is future work, nothing below
-the ingestion stage is built yet.
+The first two stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG
       ↓  ingestion + validation (magic bytes, size limits, temp dirs)   ← Stage 1 (implemented)
 Capture
-      ↓  protocol identification
-      ↓  TCP stream reconstruction
-      ↓  email session reconstruction
-Session[]
-      ↓  STARTTLS detection · TLS handshake reconstruction
+      ↓  packet source → TCP flows → stream reassembly                  ← Stage 2 (implemented)
+      ↓  protocol identification → email session reconstruction
+Session[] with timelines + evidence references
+      ↓  STARTTLS enforcement analysis · TLS handshake reconstruction
 TLSHandshake[] · CertificateEvidence[]
       ↓  cryptographic analysis · rule-based detection
 SecurityFinding[]
@@ -193,8 +222,9 @@ NS-Email/
 ├── engine/
 │   ├── core/           typed evidence models (Stage 0)
 │   ├── ingestion/      capture validation, hashing, storage ids, inspection (Stage 1)
-│   ├── protocols/      SMTP/IMAP/POP3 identification (planned)
-│   ├── transport/      TCP stream reconstruction (planned)
+│   ├── transport/      packet source, flows, reassembly (Stage 2)
+│   ├── protocols/      SMTP/IMAP/POP3 detection & session reconstruction (Stage 2)
+│   ├── analysis.py     pipeline orchestration (Stage 2)
 │   ├── crypto/         TLS/X.509 reconstruction & analysis (planned)
 │   ├── detection/      rule-based findings (planned)
 │   ├── intelligence/   ML anomaly analysis (planned)

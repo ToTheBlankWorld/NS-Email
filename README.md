@@ -10,10 +10,10 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 1 — capture evidence ingestion.**
-> The platform ingests and registers real PCAP/PCAPNG evidence. Packet parsing, protocol
-> reconstruction, TLS analysis, ML, and AI are still ahead. See
-> [Development stages](#development-stages) for what exists and what is planned.
+> **Status: Stage 2 — TCP stream & email protocol forensics.**
+> The platform ingests evidence, reconstructs TCP sessions, and identifies SMTP/IMAP/POP3
+> conversations with timelines and evidence references. TLS handshake analysis, ML, and AI
+> are still ahead. See [Development stages](#development-stages).
 
 ---
 
@@ -112,9 +112,9 @@ Dependencies are added only when a stage actually needs them.
 | Stage | Scope                                                        | Status     |
 | ----- | ------------------------------------------------------------ | ---------- |
 | 0     | Repository foundation, backend `/health`, evidence models, frontend shell | done |
-| 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | **current** |
-| 2+    | Protocol identification, TCP stream & email session reconstruction | planned |
-| 3+    | STARTTLS detection, TLS handshake reconstruction, X.509 extraction | planned |
+| 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | done |
+| 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | **current** |
+| 3+    | STARTTLS enforcement analysis, TLS handshake reconstruction, X.509 extraction | planned |
 | 4+    | Cryptographic analysis, rule-based findings                  | planned    |
 | 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
 | 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
@@ -127,22 +127,24 @@ Each stage lands as its own reviewed, tested commit.
   validates them (extension allow-list + magic-byte sniffing + tshark structural check when
   available), streams a SHA-256 evidence hash, stores bytes under a deterministic
   content-derived id (`capture_<hash-prefix>`), and registers them in a SQLite registry.
-  Duplicate evidence is detected by hash and deduplicated. Without
-  [tshark](https://www.wireshark.org/), captures register without packet metadata
-  (explicit `null`s, never placeholders); with tshark, packet count, capture time range,
-  duration, and link type are extracted.
-- **Backend** — FastAPI application: `GET /health`, capture ingestion and retrieval
-  (`GET /api/captures`, `GET /api/captures/{id}`), structured error model, explicit CORS
-  allow-list, pytest coverage.
-- **Engine** — typed, immutable, JSON-serializable Pydantic evidence models: `Capture`,
-  `Session`, `EmailProtocol`, `TLSHandshake`, `CertificateEvidence`, `SecurityFinding`,
-  plus the ingestion layer (validation, hashing, storage ids, tshark inspector behind a
-  replaceable interface). No protocol or cryptographic analysis yet.
-- **Frontend** — dark-first forensic workstation shell: sidebar navigation, top bar with
-  live backend status, real upload flow (honest progress, duplicate handling, structured
-  errors), captures list and detail views. No fake statistics, findings, or AI output.
-- **Docs** — architecture overview, setup guide, and an architecture decision record for
-  the ingestion design (`docs/decisions/001-capture-evidence-ingestion.md`).
+  Duplicate evidence is detected by hash and deduplicated.
+- **Session forensics (Stage 2)** — `POST /api/captures/{id}/analyze` reconstructs
+  bidirectional TCP flows, reassembles streams (out-of-order, retransmissions, gaps, and
+  termination are tracked honestly), identifies SMTP/IMAP/POP3 with explainable evidence and
+  confidence, and records per-session timelines where every event cites the packets it was
+  observed in. STARTTLS negotiation is detected as advertised/requested/accepted with the
+  exact transition packet. Credential values are redacted before storage. Results are
+  served via `GET /api/captures/{id}/sessions` and `GET /api/sessions/{id}`.
+- **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
+  error model, explicit CORS allow-list, pytest coverage.
+- **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis
+  layers: packet source (pure-Python pcap/pcapng reader), flow grouping, stream reassembly,
+  protocol detection, and per-protocol session reconstructors.
+- **Frontend** — dark-first forensic workstation: capture upload, live backend status,
+  one-click capture analysis with real session counts, sessions table, and a session detail
+  view with a per-event timeline. No fake statistics, findings, or AI output.
+- **Docs** — architecture overview, setup guide, and architecture decision records
+  (`docs/decisions/001-…`, `002-…`).
 
 ## Security principles
 

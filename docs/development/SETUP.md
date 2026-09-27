@@ -62,7 +62,17 @@ curl -F "file=@sample.pcap" http://127.0.0.1:8000/api/captures
 # List registered captures / fetch one
 curl http://127.0.0.1:8000/api/captures
 curl http://127.0.0.1:8000/api/captures/<capture_id>
+
+# Analyze a capture and list reconstructed sessions (Stage 2)
+curl -X POST http://127.0.0.1:8000/api/captures/<capture_id>/analyze
+curl http://127.0.0.1:8000/api/captures/<capture_id>/sessions
+curl http://127.0.0.1:8000/api/sessions/<session_id>
 ```
+
+Session analysis runs on a pure-Python packet reader (Ethernet/raw-IP,
+IPv4/TCP) and works without tshark. Captures with gaps, reordering, or
+retransmissions report them honestly; credentials found in plaintext are
+redacted before storage.
 
 Evidence identity is the SHA-256 of the bytes: re-uploading the same capture returns the
 existing registration (`duplicate: true`). Evidence files live under
