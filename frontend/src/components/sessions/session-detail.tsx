@@ -12,6 +12,7 @@ import {
   ShieldQuestion,
 } from "lucide-react";
 
+import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ApiError, getSession, type SessionEvent, type SessionRecord } from "@/lib/api";
+import {
+  ApiError,
+  getSession,
+  type SessionEvent,
+  type SessionRecord,
+  type TlsCertificate,
+  type TlsHandshake,
+} from "@/lib/api";
 import { formatBytes, formatCount, formatDuration, formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +108,143 @@ function EventLine({ event }: { event: SessionEvent }) {
         </p>
       ) : null}
     </li>
+  );
+}
+
+function TlsEvidence({ handshake }: { handshake: TlsHandshake }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">TLS handshake</CardTitle>
+        <CardDescription>
+          Facts reconstructed from the ciphertext stream — no security verdicts at this stage.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl>
+          <InfoRow label="Negotiated version">
+            <span className="font-mono text-xs">{handshake.tls_version}</span>
+          </InfoRow>
+          <InfoRow label="Cipher suite">
+            <span className="font-mono text-xs">{handshake.cipher_suite ?? "—"}</span>
+          </InfoRow>
+          <InfoRow label="Key exchange">
+            <span className="font-mono text-xs">{handshake.key_exchange}</span>
+          </InfoRow>
+          <InfoRow label="Server name (SNI)">
+            {handshake.sni_server_name ? (
+              <span className="font-mono text-xs">{handshake.sni_server_name}</span>
+            ) : (
+              "—"
+            )}
+          </InfoRow>
+          <InfoRow label="Suites offered">
+            <span className="font-mono text-xs">{handshake.cipher_suites_offered.length}</span>
+          </InfoRow>
+          <InfoRow label="Handshake">
+            {handshake.handshake_complete ? (
+              <Badge className="bg-success/15 text-success">Complete</Badge>
+            ) : (
+              <Badge variant="outline" className="text-warning">
+                Incomplete
+              </Badge>
+            )}
+          </InfoRow>
+          {handshake.completeness_reason ? (
+            <InfoRow label="Why">
+              <span className="text-xs text-muted-foreground">
+                {handshake.completeness_reason}
+              </span>
+            </InfoRow>
+          ) : null}
+        </dl>
+
+        {handshake.extensions.length > 0 ? (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              Hello extensions ({handshake.extensions.length})
+            </summary>
+            <ul className="mt-2 space-y-1">
+              {handshake.extensions.map((extension) => (
+                <li
+                  key={`${extension.type_code}-${extension.name}`}
+                  className="flex items-baseline justify-between gap-4 border-b border-border/30 pb-1 text-xs last:border-0"
+                >
+                  <span className="font-mono text-muted-foreground">{extension.name}</span>
+                  <span className="min-w-0 truncate text-right font-mono">{extension.value ?? "—"}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+
+        {handshake.warnings.length > 0 ? (
+          <ul className="mt-3 space-y-1 rounded-md border border-warning/30 bg-warning/5 px-3 py-2">
+            {handshake.warnings.map((warning) => (
+              <li key={warning} className="text-[11px] text-warning/90">
+                {warning}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CertificateChain({ certificates }: { certificates: TlsCertificate[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Certificate chain</CardTitle>
+        <CardDescription>
+          {certificates.length} certificate{certificates.length === 1 ? "" : "s"} observed in
+          the plaintext handshake.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {certificates.map((certificate) => (
+          <div
+            key={certificate.id}
+            className="rounded-md border border-border/60 bg-muted/20 px-4 py-3"
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <Badge variant="outline" className="font-mono text-[11px]">
+                {certificate.position_in_chain === 0 ? "leaf" : `#${certificate.position_in_chain ?? "?"}`}
+              </Badge>
+              <span className="font-mono text-[11px] text-muted-foreground">{certificate.id}</span>
+            </div>
+            <dl>
+              <HashRow label="Subject" value={certificate.subject} />
+              <InfoRow label="Issuer">{certificate.issuer}</InfoRow>
+              <InfoRow label="Valid from">{formatTimestamp(certificate.not_before)}</InfoRow>
+              <InfoRow label="Valid until">{formatTimestamp(certificate.not_after)}</InfoRow>
+              <InfoRow label="Signature">
+                <span className="font-mono text-xs">{certificate.signature_algorithm}</span>
+              </InfoRow>
+              <InfoRow label="Public key">
+                {certificate.public_key_algorithm
+                  ? `${certificate.public_key_algorithm} ${certificate.public_key_size_bits ?? "?"} bit`
+                  : "—"}
+              </InfoRow>
+              {certificate.subject_alternative_names.length > 0 ? (
+                <InfoRow label="SANs">
+                  <span className="font-mono text-xs">
+                    {certificate.subject_alternative_names.join(", ")}
+                  </span>
+                </InfoRow>
+              ) : null}
+            </dl>
+            <div className="mt-2 flex items-baseline justify-between gap-4">
+              <span className="shrink-0 text-xs text-muted-foreground">SHA-256 fingerprint</span>
+              <code className="min-w-0 break-all text-right font-mono text-[11px] text-muted-foreground">
+                {certificate.fingerprint_sha256}
+              </code>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -263,8 +408,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <CardHeader>
             <CardTitle className="text-sm font-medium">TLS boundary</CardTitle>
             <CardDescription>
-              Existence of a plaintext STARTTLS/STLS negotiation only — TLS analysis
-              arrives in a later stage.
+              Existence of a plaintext STARTTLS/STLS negotiation only.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -291,6 +435,12 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           </CardContent>
         </Card>
       </div>
+
+      {session.handshake ? <TlsEvidence handshake={session.handshake} /> : null}
+
+      {session.certificates && session.certificates.length > 0 ? (
+        <CertificateChain certificates={session.certificates} />
+      ) : null}
 
       <Card>
         <CardHeader>

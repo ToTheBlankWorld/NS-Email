@@ -68,6 +68,7 @@ Stage 1 added `engine/ingestion` (evidence acquisition); Stage 2 adds
 | `SessionEvent` / `StarttlsObservation` | Timeline events with packet references; plaintext STARTTLS negotiation facts |
 | `engine.transport`     | Packet source (pure-Python pcap/pcapng), flow grouping, stream reassembly, orientation |
 | `engine.protocols`     | SMTP/IMAP/POP3 detection with evidence, session reconstruction, credential redaction |
+| `engine.crypto`        | TLS record/handshake parsing, hello extensions, X.509 chain extraction (Stage 3) |
 | `engine.analysis`      | Pipeline orchestration: packets → flows → sessions |
 
 Cross-cutting guarantees enforced by `engine/core/base.py`:
@@ -142,7 +143,11 @@ stream bytes + gaps + retransmissions + duplicates + FIN/RST
   ↓  orientation (SYN → service ports → greeting; else "unknown")
   ↓  per-protocol reconstructors (SMTP/IMAP/POP3)
 Session[] with event timelines (every event cites its packet numbers)
-  ↓  SQLiteSessionStore (sessions · session_events · analysis tables)
+  ↓  STARTTLS boundary → TLS record parsing (Stage 3)
+TLSHandshake (version · cipher suites · key exchange · extensions)
+  ↓  X.509 chain extraction (cryptography-backed)
+CertificateEvidence[] (chain position, fingerprints)
+  ↓  SQLiteSessionStore (sessions · session_events · certificates · analysis tables)
 ```
 
 Security properties of this stage:
@@ -163,7 +168,7 @@ analysis with the real session count and protocol breakdown, a sessions table, a
 session detail view with a per-event timeline and TLS-boundary section. No fake
 statistics, findings, or AI output.
 
-The first two stages of the pipeline are implemented; the rest is future work.
+The first three stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG
@@ -172,7 +177,7 @@ Capture
       ↓  packet source → TCP flows → stream reassembly                  ← Stage 2 (implemented)
       ↓  protocol identification → email session reconstruction
 Session[] with timelines + evidence references
-      ↓  STARTTLS enforcement analysis · TLS handshake reconstruction
+      ↓  TLS record/handshake parsing → X.509 chain extraction          ← Stage 3 (implemented)
 TLSHandshake[] · CertificateEvidence[]
       ↓  cryptographic analysis · rule-based detection
 SecurityFinding[]
@@ -221,6 +226,7 @@ NS-Email/
 │   └── tests/          API, storage, registry, and security tests
 ├── engine/
 │   ├── core/           typed evidence models (Stage 0)
+│   ├── crypto/         TLS record/handshake parsing, X.509 extraction (Stage 3)
 │   ├── ingestion/      capture validation, hashing, storage ids, inspection (Stage 1)
 │   ├── transport/      packet source, flows, reassembly (Stage 2)
 │   ├── protocols/      SMTP/IMAP/POP3 detection & session reconstruction (Stage 2)

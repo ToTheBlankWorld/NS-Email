@@ -126,6 +126,6 @@ def list_capture_sessions(capture_id: str, request: Request) -> list[SessionResp
     if _ingestion(request).get_capture(capture_id) is None:
         raise ApiError(ERROR_CAPTURE_NOT_FOUND, "no capture exists with this id", 404)
     return [
-        SessionResponse.from_session(session, include_events=False)
+        SessionResponse.from_session(session, include_detail=False)
         for session in _analysis(request).sessions_for(capture_id)
     ]

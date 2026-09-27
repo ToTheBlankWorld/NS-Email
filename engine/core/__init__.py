@@ -16,7 +16,7 @@ from engine.core.session import (
     Session,
     StarttlsObservation,
 )
-from engine.core.tls import KeyExchange, TLSHandshake, TLSVersion
+from engine.core.tls import KeyExchange, TlsExtension, TLSHandshake, TLSVersion
 
 __all__ = [
     "MAX_CAPTURE_SIZE_BYTES",
@@ -39,6 +39,7 @@ __all__ = [
     "StarttlsObservation",
     "TLSHandshake",
     "TLSVersion",
+    "TlsExtension",
     "new_evidence_id",
     "utc_now",
 ]

@@ -30,6 +30,7 @@ class CertificateEvidence(ForensicBase):
     public_key_size_bits: int | None = Field(default=None, ge=0)
     subject_alternative_names: list[str] = Field(default_factory=list)
     fingerprint_sha256: str | None = None
+    position_in_chain: int | None = Field(default=None, ge=0)
 
     @field_validator("serial_number", "fingerprint_sha256")
     @classmethod

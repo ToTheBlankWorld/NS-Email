@@ -10,10 +10,11 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 2 — TCP stream & email protocol forensics.**
-> The platform ingests evidence, reconstructs TCP sessions, and identifies SMTP/IMAP/POP3
-> conversations with timelines and evidence references. TLS handshake analysis, ML, and AI
-> are still ahead. See [Development stages](#development-stages).
+> **Status: Stage 3 — TLS handshake & certificate evidence.**
+> The platform ingests evidence, reconstructs TCP sessions and email conversations, and now
+> parses the TLS handshake itself: negotiated version, cipher suites, key exchange, hello
+> extensions, and the visible X.509 chain. Cryptographic scoring, ML, and AI are still ahead.
+> See [Development stages](#development-stages).
 
 ---
 
@@ -113,8 +114,9 @@ Dependencies are added only when a stage actually needs them.
 | ----- | ------------------------------------------------------------ | ---------- |
 | 0     | Repository foundation, backend `/health`, evidence models, frontend shell | done |
 | 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | done |
-| 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | **current** |
-| 3+    | STARTTLS enforcement analysis, TLS handshake reconstruction, X.509 extraction | planned |
+| 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | done |
+| 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | **current** |
+| 4+    | Cryptographic analysis, rule-based findings | planned |
 | 4+    | Cryptographic analysis, rule-based findings                  | planned    |
 | 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
 | 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
@@ -135,6 +137,12 @@ Each stage lands as its own reviewed, tested commit.
   observed in. STARTTLS negotiation is detected as advertised/requested/accepted with the
   exact transition packet. Credential values are redacted before storage. Results are
   served via `GET /api/captures/{id}/sessions` and `GET /api/sessions/{id}`.
+- **TLS evidence (Stage 3)** — where a session switches to TLS (STARTTLS boundary or
+  implicit-TLS port), the engine parses the handshake: negotiated version, selected and
+  offered cipher suites, key-exchange family, SNI and other hello extensions, and the
+  visible X.509 chain (`cryptography`-backed, chain position, fingerprints). TLS 1.3
+  encrypts certificates from the ServerHello onward — the evidence records that honestly
+  instead of pretending otherwise.
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

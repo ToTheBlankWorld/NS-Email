@@ -85,6 +85,46 @@ export type StarttlsObservation = {
   timestamp: string | null;
 };
 
+export type TlsExtension = {
+  type_code: number;
+  name: string;
+  length: number;
+  value: string | null;
+};
+
+export type TlsHandshake = {
+  id: string;
+  session_id: string;
+  tls_version: string;
+  cipher_suite: string | null;
+  cipher_suite_code: number | null;
+  key_exchange: string;
+  cipher_suites_offered: string[];
+  extensions: TlsExtension[];
+  sni_server_name: string | null;
+  started_at: string | null;
+  handshake_complete: boolean | null;
+  completeness_reason: string | null;
+  certificate_ids: string[];
+  warnings: string[];
+};
+
+export type TlsCertificate = {
+  id: string;
+  session_id: string;
+  subject: string;
+  issuer: string;
+  serial_number: string;
+  not_before: string;
+  not_after: string;
+  signature_algorithm: string;
+  public_key_algorithm: string | null;
+  public_key_size_bits: number | null;
+  subject_alternative_names: string[];
+  fingerprint_sha256: string | null;
+  position_in_chain: number | null;
+};
+
 export type SessionEvent = {
   seq: number;
   type: string;
@@ -117,6 +157,8 @@ export type SessionRecord = {
   gap_count: number;
   gap_bytes: number;
   starttls: StarttlsObservation | null;
+  handshake: TlsHandshake | null;
+  certificates?: TlsCertificate[];
   warnings: string[];
   events?: SessionEvent[];
 };

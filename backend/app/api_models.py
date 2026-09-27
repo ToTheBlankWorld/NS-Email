@@ -141,6 +141,50 @@ class StarttlsInfo(BaseModel):
     timestamp: datetime | None = None
 
 
+class TlsExtensionInfo(BaseModel):
+    type_code: int
+    name: str
+    length: int
+    value: str | None = None
+
+
+class TlsHandshakeInfo(BaseModel):
+    """Structured TLS handshake evidence for one session."""
+
+    id: str
+    session_id: str
+    tls_version: str
+    cipher_suite: str | None = None
+    cipher_suite_code: int | None = None
+    key_exchange: str
+    cipher_suites_offered: list[str] = Field(default_factory=list)
+    extensions: list[TlsExtensionInfo] = Field(default_factory=list)
+    sni_server_name: str | None = None
+    started_at: datetime | None = None
+    handshake_complete: bool | None = None
+    completeness_reason: str | None = None
+    certificate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CertificateInfo(BaseModel):
+    """X.509 certificate evidence for one chain position."""
+
+    id: str
+    session_id: str
+    subject: str
+    issuer: str
+    serial_number: str
+    not_before: datetime
+    not_after: datetime
+    signature_algorithm: str
+    public_key_algorithm: str | None = None
+    public_key_size_bits: int | None = None
+    subject_alternative_names: list[str] = Field(default_factory=list)
+    fingerprint_sha256: str | None = None
+    position_in_chain: int | None = None
+
+
 class SessionEventOut(BaseModel):
     seq: int
     type: str
@@ -175,12 +219,15 @@ class SessionResponse(BaseModel):
     gap_count: int
     gap_bytes: int
     starttls: StarttlsInfo | None = None
+    handshake: TlsHandshakeInfo | None = None
+    certificates: list[CertificateInfo] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     events: list[SessionEventOut] = Field(default_factory=list)
 
     @classmethod
-    def from_session(cls, session: Session, *, include_events: bool = True) -> "SessionResponse":
+    def from_session(cls, session: Session, *, include_detail: bool = True) -> "SessionResponse":
         starttls = session.starttls
+        handshake = session.handshake
         return cls(
             id=session.id,
             capture_id=session.capture_id,
@@ -212,8 +259,56 @@ class SessionResponse(BaseModel):
             )
             if starttls
             else None,
+            handshake=(
+                TlsHandshakeInfo(
+                    id=handshake.id,
+                    session_id=handshake.session_id,
+                    tls_version=handshake.tls_version.value,
+                    cipher_suite=handshake.cipher_suite,
+                    cipher_suite_code=handshake.cipher_suite_code,
+                    key_exchange=handshake.key_exchange.value,
+                    cipher_suites_offered=handshake.cipher_suites_offered,
+                    extensions=[
+                        TlsExtensionInfo(
+                            type_code=e.type_code,
+                            name=e.name,
+                            length=e.length,
+                            value=e.value,
+                        )
+                        for e in handshake.extensions
+                    ],
+                    sni_server_name=handshake.sni_server_name,
+                    started_at=handshake.started_at,
+                    handshake_complete=handshake.handshake_complete,
+                    completeness_reason=handshake.completeness_reason,
+                    certificate_ids=handshake.certificate_ids,
+                    warnings=handshake.warnings,
+                )
+                if handshake
+                else None
+            ),
+            certificates=[
+                CertificateInfo(
+                    id=certificate.id,
+                    session_id=certificate.session_id,
+                    subject=certificate.subject,
+                    issuer=certificate.issuer,
+                    serial_number=certificate.serial_number,
+                    not_before=certificate.not_before,
+                    not_after=certificate.not_after,
+                    signature_algorithm=certificate.signature_algorithm,
+                    public_key_algorithm=certificate.public_key_algorithm,
+                    public_key_size_bits=certificate.public_key_size_bits,
+                    subject_alternative_names=certificate.subject_alternative_names,
+                    fingerprint_sha256=certificate.fingerprint_sha256,
+                    position_in_chain=certificate.position_in_chain,
+                )
+                for certificate in session.certificates
+            ]
+            if include_detail
+            else [],
             warnings=session.warnings,
-            events=[_event_out(event) for event in session.events] if include_events else [],
+            events=[_event_out(event) for event in session.events] if include_detail else [],
         )
 
 

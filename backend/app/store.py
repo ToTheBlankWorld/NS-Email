@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+from engine.core.certificate import CertificateEvidence
 from engine.core.events import EventDirection, EventType, SessionEvent
 from engine.core.session import (
     Confidence,
@@ -23,6 +24,7 @@ from engine.core.session import (
     Session,
     StarttlsObservation,
 )
+from engine.core.tls import TLSHandshake
 from engine.ingestion.errors import CaptureStorageError
 
 _SCHEMA = """
@@ -62,8 +64,25 @@ CREATE TABLE IF NOT EXISTS sessions (
     starttls_response_seen INTEGER,
     starttls_packet_number INTEGER,
     starttls_at TEXT,
-    warnings TEXT NOT NULL DEFAULT '[]'
+    warnings TEXT NOT NULL DEFAULT '[]',
+    tls_handshake TEXT
 );
+CREATE TABLE IF NOT EXISTS session_certificates (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    position_in_chain INTEGER,
+    subject TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    serial_number TEXT NOT NULL,
+    not_before TEXT,
+    not_after TEXT,
+    signature_algorithm TEXT NOT NULL,
+    public_key_algorithm TEXT,
+    public_key_size_bits INTEGER,
+    subject_alternative_names TEXT NOT NULL DEFAULT '[]',
+    fingerprint_sha256 TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_certificates_session ON session_certificates(session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_capture ON sessions(capture_id);
 CREATE TABLE IF NOT EXISTS session_events (
     session_id TEXT NOT NULL,
@@ -157,6 +176,7 @@ def _session_to_row(session: Session) -> tuple[object, ...]:
         starttls.packet_number if starttls else None,
         _iso(starttls.timestamp) if starttls and starttls.timestamp else None,
         json.dumps(session.warnings),
+        session.handshake.model_dump_json() if session.handshake else None,
     )
 
 
@@ -172,7 +192,11 @@ def _event_to_row(session_id: str, event: SessionEvent) -> tuple[object, ...]:
     )
 
 
-def _session_from_row(row: sqlite3.Row, events: list[SessionEvent]) -> Session:
+def _session_from_row(
+    row: sqlite3.Row,
+    events: list[SessionEvent],
+    certificates: list[CertificateEvidence] | None = None,
+) -> Session:
     starttls = None
     if row["starttls_advertised"] or row["starttls_requested"] or row["starttls_response_seen"]:
         starttls = StarttlsObservation(
@@ -182,6 +206,8 @@ def _session_from_row(row: sqlite3.Row, events: list[SessionEvent]) -> Session:
             packet_number=row["starttls_packet_number"],
             timestamp=_from_iso(row["starttls_at"]),
         )
+    handshake_json = row["tls_handshake"] if "tls_handshake" in row.keys() else None  # noqa: SIM118 - sqlite3.Row supports `in keys()`, not dict semantics
+    handshake = TLSHandshake.model_validate_json(handshake_json) if handshake_json else None
     return Session(
         id=row["id"],
         capture_id=row["capture_id"],
@@ -205,6 +231,8 @@ def _session_from_row(row: sqlite3.Row, events: list[SessionEvent]) -> Session:
         gap_count=row["gap_count"],
         gap_bytes=row["gap_bytes"],
         starttls=starttls,
+        handshake=handshake,
+        certificates=certificates or [],
         warnings=json.loads(row["warnings"]),
         events=events,
     )
@@ -221,6 +249,42 @@ def _event_from_row(row: sqlite3.Row) -> SessionEvent:
     )
 
 
+def _certificate_to_row(certificate: CertificateEvidence) -> tuple[object, ...]:
+    return (
+        certificate.id,
+        certificate.session_id,
+        certificate.position_in_chain,
+        certificate.subject,
+        certificate.issuer,
+        certificate.serial_number,
+        _iso(certificate.not_before),
+        _iso(certificate.not_after),
+        certificate.signature_algorithm,
+        certificate.public_key_algorithm,
+        certificate.public_key_size_bits,
+        json.dumps(certificate.subject_alternative_names),
+        certificate.fingerprint_sha256,
+    )
+
+
+def _certificate_from_row(row: sqlite3.Row) -> CertificateEvidence:
+    return CertificateEvidence(
+        id=row["id"],
+        session_id=row["session_id"],
+        subject=row["subject"],
+        issuer=row["issuer"],
+        serial_number=row["serial_number"],
+        not_before=_from_iso(row["not_before"]) or datetime.now(UTC),
+        not_after=_from_iso(row["not_after"]) or datetime.now(UTC),
+        signature_algorithm=row["signature_algorithm"],
+        public_key_algorithm=row["public_key_algorithm"],
+        public_key_size_bits=row["public_key_size_bits"],
+        subject_alternative_names=json.loads(row["subject_alternative_names"]),
+        fingerprint_sha256=row["fingerprint_sha256"],
+        position_in_chain=row["position_in_chain"],
+    )
+
+
 class SQLiteSessionStore:
     """Concrete store: sessions/events/analysis tables next to the registry."""
 
@@ -230,8 +294,16 @@ class SQLiteSessionStore:
             db_path.parent.mkdir(parents=True, exist_ok=True)
             with self._session() as connection:
                 connection.executescript(_SCHEMA)
+                self._migrate(connection)
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot initialize session store: {error}") from error
+
+    @staticmethod
+    def _migrate(connection: sqlite3.Connection) -> None:
+        """Best-effort column additions for stores created by earlier stages."""
+        existing = {row[1] for row in connection.execute("PRAGMA table_info(sessions)")}
+        if "tls_handshake" not in existing:
+            connection.execute("ALTER TABLE sessions ADD COLUMN tls_handshake TEXT")
 
     @contextmanager
     def _session(self) -> Iterator[sqlite3.Connection]:
@@ -256,6 +328,7 @@ class SQLiteSessionStore:
                 )
                 connection.execute("DELETE FROM sessions WHERE capture_id = ?", (capture_id,))
                 for session in sessions:
+                    (session.handshake.model_dump_json() if session.handshake else None)
                     connection.execute(
                         """INSERT INTO sessions (
                             id, capture_id, protocol, confidence, orientation,
@@ -264,14 +337,27 @@ class SQLiteSessionStore:
                             bytes_client_to_server, bytes_server_to_client, complete,
                             completeness_reason, retransmissions, gap_count, gap_bytes,
                             starttls_advertised, starttls_requested, starttls_response_seen,
-                            starttls_packet_number, starttls_at, warnings
-                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                            starttls_packet_number, starttls_at, warnings, tls_handshake
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         _session_to_row(session),
                     )
+                    connection.execute(
+                        "DELETE FROM session_certificates WHERE session_id = ?", (session.id,)
+                    )
+                    for certificate in session.certificates:
+                        connection.execute(
+                            "INSERT OR REPLACE INTO session_certificates "
+                            "(id, session_id, position_in_chain, subject, issuer, "
+                            "serial_number, not_before, not_after, signature_algorithm, "
+                            "public_key_algorithm, public_key_size_bits, "
+                            "subject_alternative_names, fingerprint_sha256) "
+                            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            _certificate_to_row(certificate),
+                        )
                     for event in session.events:
                         connection.execute(
-                            "INSERT INTO session_events"
-                            "(session_id, seq, type, direction, timestamp, packet_numbers, detail)"
+                            "INSERT INTO session_events "
+                            "(session_id, seq, type, direction, timestamp, packet_numbers, detail) "
                             "VALUES (?,?,?,?,?,?,?)",
                             _event_to_row(session.id, event),
                         )
@@ -291,12 +377,28 @@ class SQLiteSessionStore:
                     "ORDER BY session_id, seq",
                     (capture_id,),
                 ).fetchall()
+                certificates = connection.execute(
+                    "SELECT * FROM session_certificates WHERE session_id IN "
+                    "(SELECT id FROM sessions WHERE capture_id = ?) "
+                    "ORDER BY session_id, position_in_chain",
+                    (capture_id,),
+                ).fetchall()
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot list sessions: {error}") from error
         events_by_session: dict[str, list[SessionEvent]] = {}
         for row in events:
             events_by_session.setdefault(row["session_id"], []).append(_event_from_row(row))
-        return [_session_from_row(row, events_by_session.get(row["id"], [])) for row in rows]
+        certs_by_session: dict[str, list[CertificateEvidence]] = {}
+        for row in certificates:
+            certs_by_session.setdefault(row["session_id"], []).append(_certificate_from_row(row))
+        return [
+            _session_from_row(
+                row,
+                events_by_session.get(row["id"], []),
+                certs_by_session.get(row["id"], []),
+            )
+            for row in rows
+        ]
 
     def get(self, session_id: str) -> Session | None:
         try:
@@ -308,11 +410,20 @@ class SQLiteSessionStore:
                     "SELECT * FROM session_events WHERE session_id = ? ORDER BY seq",
                     (session_id,),
                 ).fetchall()
+                certificates = connection.execute(
+                    "SELECT * FROM session_certificates WHERE session_id = ? "
+                    "ORDER BY position_in_chain",
+                    (session_id,),
+                ).fetchall()
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot load session: {error}") from error
         if row is None:
             return None
-        return _session_from_row(row, [_event_from_row(event) for event in events])
+        return _session_from_row(
+            row,
+            [_event_from_row(event) for event in events],
+            [_certificate_from_row(certificate) for certificate in certificates],
+        )
 
     def analysis_status(self, capture_id: str) -> AnalysisRecord:
         try:

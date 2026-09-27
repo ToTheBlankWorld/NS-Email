@@ -141,7 +141,7 @@ def build_imap_conversation(lines: list[ConversationLine]) -> ReconstructedConve
                         {"phase": "encrypted stream expected"},
                     )
                 )
-                starttls.response_seen = True
+                starttls.note_accept(line)
                 pending_starttls_tag = None
                 tls_after = True
                 warnings.append(

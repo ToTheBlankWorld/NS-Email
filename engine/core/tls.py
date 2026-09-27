@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Final
 
-from pydantic import AwareDatetime
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from engine.core.base import ForensicBase
 
@@ -61,17 +61,43 @@ _EPHEMERAL_KEY_EXCHANGES: Final[frozenset[KeyExchange]] = frozenset(
 )
 
 
-class TLSHandshake(ForensicBase):
-    """A TLS handshake observed within a session.
+class TlsExtension(BaseModel):
+    """One TLS hello extension, recorded as structured evidence.
 
-    Cipher suite is recorded as the standard name string (e.g.
-    ``TLS_AES_128_GCM_SHA256``); suite code mapping happens during
-    handshake reconstruction in a later stage.
+    ``value`` is a bounded, human-readable summary of well-understood
+    extensions (server name, ALPN, supported versions, ...); unknown
+    extensions keep only their type code and length.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    type_code: int = Field(ge=0, le=65535)
+    name: str
+    length: int = Field(ge=0)
+    value: str | None = None
+
+
+class TLSHandshake(ForensicBase):
+    """Structured evidence from one reconstructed TLS handshake.
+
+    Records facts only — versions, cipher suites, key exchange, hello
+    extensions — never security verdicts. ``tls_version`` is the
+    negotiated version; ``cipher_suite``/``cipher_suite_code`` describe
+    the server's selection; ``cipher_suites_offered`` lists the client's
+    proposals in offer order. Certificates live on the session as
+    ``CertificateEvidence`` and are referenced by ``certificate_ids``.
     """
 
     session_id: str
     tls_version: TLSVersion = TLSVersion.UNKNOWN
     cipher_suite: str | None = None
+    cipher_suite_code: int | None = Field(default=None, ge=0, le=65535)
     key_exchange: KeyExchange = KeyExchange.UNKNOWN
+    cipher_suites_offered: list[str] = Field(default_factory=list)
+    extensions: list[TlsExtension] = Field(default_factory=list)
     sni_server_name: str | None = None
     started_at: AwareDatetime | None = None
+    handshake_complete: bool | None = None
+    completeness_reason: str | None = None
+    certificate_ids: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)

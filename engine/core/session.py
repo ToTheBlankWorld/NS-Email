@@ -7,7 +7,9 @@ from typing import Final
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, IPvAnyAddress
 
 from engine.core.base import ForensicBase
+from engine.core.certificate import CertificateEvidence
 from engine.core.events import SessionEvent
+from engine.core.tls import TLSHandshake
 
 # Session identifiers are derived deterministically from the capture id and
 # the canonical bidirectional flow 5-tuple (see engine.transport.flows).
@@ -116,5 +118,7 @@ class Session(ForensicBase):
     gap_count: int = Field(default=0, ge=0)
     gap_bytes: int = Field(default=0, ge=0)
     starttls: StarttlsObservation | None = None
+    handshake: TLSHandshake | None = None
+    certificates: list[CertificateEvidence] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     events: list[SessionEvent] = Field(default_factory=list)

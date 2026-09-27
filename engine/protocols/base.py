@@ -20,13 +20,19 @@ MAX_LINE_LENGTH: Final[int] = 512
 
 @dataclass(frozen=True, slots=True)
 class ConversationLine:
-    """One sanitized application-layer line and its evidence."""
+    """One sanitized application-layer line and its evidence.
+
+    ``offset`` is the line's first byte in its direction's stream and
+    ``end_offset`` the byte just after its line terminator — the boundary
+    where a STARTTLS ciphertext stream begins.
+    """
 
     direction: EventDirection
     offset: int
     text: str
     packet_numbers: list[int] = field(default_factory=list)
     timestamp: float = 0.0
+    end_offset: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,19 +48,31 @@ class RawEvent:
 
 @dataclass(slots=True)
 class StarttlsTracker:
-    """Mutable collection state for STARTTLS observation during parsing."""
+    """Mutable collection state for STARTTLS observation during parsing.
+
+    ``client_tls_start``/``server_tls_start`` are the stream offsets where
+    each direction switches to ciphertext (just after the STARTTLS command
+    and its acceptance response) — the entry points for TLS reconstruction.
+    """
 
     advertised: bool = False
     requested: bool = False
     response_seen: bool = False
     packet_number: int | None = None
     timestamp: float | None = None
+    client_tls_start: int | None = None
+    server_tls_start: int | None = None
 
     def note_request(self, line: "ConversationLine") -> None:
         self.requested = True
         if self.packet_number is None:
             self.packet_number = line.packet_numbers[0] if line.packet_numbers else None
             self.timestamp = line.timestamp
+        self.client_tls_start = line.end_offset
+
+    def note_accept(self, line: "ConversationLine") -> None:
+        self.response_seen = True
+        self.server_tls_start = line.end_offset
 
     def to_observation(self) -> StarttlsObservation:
         from datetime import UTC, datetime
@@ -89,18 +107,22 @@ def extract_lines(assembly: StreamAssembly, direction: EventDirection) -> list[C
     cursor = 0
     for match in _LINE_BREAK.finditer(data):
         raw = data[cursor : match.start()]
-        lines.append(_make_line(raw, cursor, direction, assembly))
+        lines.append(_make_line(raw, cursor, match.end(), direction, assembly))
         cursor = match.end()
     if cursor < len(data):
         remainder = data[cursor:]
         # A trailing fragment without a line break is still conversation
         # data (e.g. truncated capture); keep it if it is printable-ish.
-        lines.append(_make_line(remainder, cursor, direction, assembly))
+        lines.append(_make_line(remainder, cursor, len(data), direction, assembly))
     return lines
 
 
 def _make_line(
-    raw: bytes, offset: int, direction: EventDirection, assembly: StreamAssembly
+    raw: bytes,
+    offset: int,
+    end_offset: int,
+    direction: EventDirection,
+    assembly: StreamAssembly,
 ) -> ConversationLine:
     text = safe_value(raw.decode("latin-1"), MAX_LINE_LENGTH)
     return ConversationLine(
@@ -109,6 +131,7 @@ def _make_line(
         text=text,
         packet_numbers=assembly.packets_covering(offset, offset + max(1, len(raw))),
         timestamp=assembly.timestamp_at(offset),
+        end_offset=end_offset,
     )
 
 

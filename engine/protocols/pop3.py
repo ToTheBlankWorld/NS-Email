@@ -115,7 +115,7 @@ def build_pop3_conversation(lines: list[ConversationLine]) -> ReconstructedConve
                         {"phase": "encrypted stream expected"},
                     )
                 )
-                starttls.response_seen = True
+                starttls.note_accept(line)
                 tls_after = True
                 warnings.append(
                     "plaintext parsing stopped after STLS; the remainder of the "

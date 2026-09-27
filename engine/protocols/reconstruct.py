@@ -6,9 +6,11 @@ Session evidence with a timeline and evidence references. Unknown
 protocols produce a transport-level session without protocol claims.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from ipaddress import ip_address
 
+from engine.core.certificate import CertificateEvidence
 from engine.core.events import EventDirection, EventType, SessionEvent
 from engine.core.session import (
     Confidence,
@@ -17,6 +19,8 @@ from engine.core.session import (
     Session,
     StarttlsObservation,
 )
+from engine.core.tls import TLSHandshake, TLSVersion
+from engine.crypto.tls import parse_tls_evidence
 from engine.protocols.base import (
     RawEvent,
     ReconstructedConversation,
@@ -29,7 +33,7 @@ from engine.protocols.pop3 import build_pop3_conversation
 from engine.protocols.smtp import build_smtp_conversation
 from engine.transport.flows import Direction, Flow
 from engine.transport.orientation import OrientationResult, determine_orientation
-from engine.transport.reassembly import assemble_direction
+from engine.transport.reassembly import StreamSlice, assemble_direction
 
 _DETECTORS = {
     EmailProtocol.SMTP: build_smtp_conversation,
@@ -146,6 +150,41 @@ def reconstruct_session(flow: Flow) -> Session:
             reasons.append("no FIN or RST observed (no graceful termination)")
         completeness_reason = "; ".join(reasons)
 
+    # --- TLS reconstruction (Stage 3) ------------------------------------
+    handshake: TLSHandshake | None = None
+    certificates: list[CertificateEvidence] = []
+    implicit_tls = EmailProtocol.is_implicit_tls_port(
+        flow.direction_b.port
+    ) or EmailProtocol.is_implicit_tls_port(flow.direction_a.port)
+    if conversation.starttls.response_seen and (
+        conversation.starttls.client_tls_start is not None
+        and conversation.starttls.server_tls_start is not None
+    ):
+        client_tls = StreamSlice(client_stream, conversation.starttls.client_tls_start)
+        server_tls = StreamSlice(server_stream, conversation.starttls.server_tls_start)
+        evidence = parse_tls_evidence(client_tls, server_tls, session_id=flow.id)
+        handshake = evidence.handshake
+        certificates = evidence.certificates
+        warnings.extend(evidence.warnings)
+    elif implicit_tls:
+        # The whole session is TLS from the first byte.
+        evidence = parse_tls_evidence(
+            StreamSlice(client_stream, 0), StreamSlice(server_stream, 0), session_id=flow.id
+        )
+        handshake = evidence.handshake
+        certificates = evidence.certificates
+        warnings.extend(evidence.warnings)
+        if handshake.tls_version is not TLSVersion.UNKNOWN and detection.protocol is None:
+            port_protocol = EmailProtocol.from_port(
+                flow.direction_b.port
+            ) or EmailProtocol.from_port(flow.direction_a.port)
+            if port_protocol is not None:
+                detection = replace(detection, protocol=port_protocol, confidence=Confidence.MEDIUM)
+                warnings.append(
+                    "protocol inferred from the implicit-TLS service port and a "
+                    "successful TLS handshake"
+                )
+
     started_at = _to_datetime(first.timestamp) if first is not None else None
     ended_at = _to_datetime(last.timestamp) if last is not None else None
     duration = last.timestamp - first.timestamp if first is not None and last is not None else None
@@ -160,8 +199,7 @@ def reconstruct_session(flow: Flow) -> Session:
         protocol=detection.protocol,
         confidence=detection.confidence,
         orientation=orientation,
-        implicit_tls=flow.direction_b.port in (465, 993, 995)
-        or flow.direction_a.port in (465, 993, 995),
+        implicit_tls=implicit_tls,
         started_at=started_at,
         ended_at=ended_at,
         duration_seconds=max(0.0, duration) if duration is not None else None,
@@ -170,6 +208,8 @@ def reconstruct_session(flow: Flow) -> Session:
         bytes_server_to_client=server_stream.bytes_reconstructed,
         complete=complete,
         completeness_reason=completeness_reason,
+        handshake=handshake,
+        certificates=certificates,
         retransmissions=stream_a.retransmitted_segments + stream_b.retransmitted_segments,
         gap_count=gap_count,
         gap_bytes=gap_bytes,

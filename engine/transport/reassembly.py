@@ -259,3 +259,29 @@ def assemble_direction(packets: Iterable[PacketRecord]) -> StreamAssembly:
     for packet in sorted(packets, key=lambda p: (p.timestamp, p.number)):
         assembler.add_packet(packet)
     return assembler.assemble()
+
+
+@dataclass(frozen=True, slots=True)
+class StreamSlice:
+    """A byte-range view of a reassembled stream (e.g. the TLS segment).
+
+    Byte offsets inside the slice are relative to ``start``; evidence
+    lookups (packet numbers, timestamps) map back to the full stream.
+    """
+
+    assembly: StreamAssembly
+    start: int
+
+    def bytes(self) -> bytes:
+        return self.assembly.stream()[self.start :]
+
+    def locator(self, relative_offset: int) -> tuple[int, float]:
+        return self.assembly.locator(self.start + relative_offset)
+
+    def packets_covering(self, relative_start: int, relative_end: int) -> list[int]:
+        return self.assembly.packets_covering(
+            self.start + relative_start, self.start + relative_end
+        )
+
+    def timestamp_at(self, relative_offset: int) -> float:
+        return self.assembly.timestamp_at(self.start + relative_offset)
