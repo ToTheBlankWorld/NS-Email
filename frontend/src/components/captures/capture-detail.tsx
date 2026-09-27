@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { FindingsSection } from "@/components/findings/findings-section";
+import { PostureSection } from "@/components/posture/posture-section";
 import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -398,6 +399,8 @@ export function CaptureDetail({ captureId }: { captureId: string }) {
       <SessionsTable captureId={capture.id} />
 
       <FindingsSection captureId={capture.id} />
+
+      <PostureSection captureId={capture.id} />
     </div>
   );
 }

@@ -274,3 +274,12 @@ def malformed_pcap() -> bytes:
     b = FrameConversation()
     (b.syn().synack().ack().s(b"not-a-greeting at all\r\n").c(b"\x01\x02\x03\x04").fin_s())
     return b.to_pcap()
+
+
+def frames_to_pcap(frames: list[bytes]) -> bytes:
+    """Wrap pre-built Ethernet frames into one pcap container."""
+    out = struct.pack("<I", 0xA1B2C3D4) + struct.pack("<HHiIII", 2, 4, 0, 0, 65535, 1)
+    for index, frame in enumerate(frames):
+        out += struct.pack("<IIII", 1727430000 + index, 0, len(frame), len(frame))
+        out += frame
+    return out

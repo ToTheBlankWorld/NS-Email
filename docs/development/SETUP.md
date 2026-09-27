@@ -90,6 +90,24 @@ Findings are produced by the versioned built-in baseline
 typed policy models in `engine/detection/policy.py` — policy files are
 parsed as structured data only (no code execution).
 
+Each analysis also produces an explainable security posture snapshot
+(Stage 5):
+
+```bash
+curl http://127.0.0.1:8000/api/captures/<capture_id>/posture
+curl http://127.0.0.1:8000/api/captures/<capture_id>/posture/protocols
+curl http://127.0.0.1:8000/api/captures/<capture_id>/priorities
+curl http://127.0.0.1:8000/api/captures/<capture_id>/hosts
+curl http://127.0.0.1:8000/api/captures/<capture_id>/hosts/<host_id>
+```
+
+The posture score is a SecureMailScope-defined analytical metric: base
+100 minus factor deductions (severity weight x confidence multiplier x
+prevalence multiplier, correlated within five posture factors). The full
+formula and rationale are documented in
+`docs/decisions/005-security-posture-model.md` and exposed in the UI
+under "How is this calculated?".
+
 Evidence identity is the SHA-256 of the bytes: re-uploading the same capture returns the
 existing registration (`duplicate: true`). Evidence files live under
 `NS_EMAIL_CAPTURE_STORAGE/<capture_id>/evidence.<format>` — never under the upload

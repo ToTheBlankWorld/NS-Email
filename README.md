@@ -10,12 +10,12 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 4 — cryptographic security findings & policy engine.**
-> The platform now runs a deterministic, versioned policy engine over the reconstructed
-> evidence: deprecated TLS versions, unacceptable cipher suites, non-forward-secret key
-> exchange, certificate validity/key/signature/identity findings, STARTTLS gaps, and
-> plaintext authentication — every finding rule-backed, evidence-cited, and remediation-
-> tagged. No ML, no AI, no unexplained scores. See [Development stages](#development-stages).
+> **Status: Stage 5 — explainable security posture.**
+> The platform now aggregates deterministic findings into an explainable cryptographic
+> security posture: a 0-100 score with documented severity weights, confidence and
+> prevalence handling, factor/protocol/host breakdowns, and a deterministic priority
+> ranking. The score is a SecureMailScope-defined analytical metric — no ML, no AI, no
+> industry-standard claims. See [Development stages](#development-stages).
 
 ---
 
@@ -117,8 +117,9 @@ Dependencies are added only when a stage actually needs them.
 | 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | done |
 | 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | done |
 | 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | done |
-| 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | **current** |
-| 5+    | Risk prioritization, ML anomaly analysis, evidence graph | planned |
+| 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | done |
+| 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | **current** |
+| 6+    | ML anomaly analysis, evidence graph, AI-assisted explanation, reports | planned |
 | 4+    | Cryptographic analysis, rule-based findings                  | planned    |
 | 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
 | 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
@@ -155,6 +156,12 @@ Each stage lands as its own reviewed, tested commit.
   RFC 7525). Findings are served via
   `GET /api/captures/{id}/findings`, `GET /api/sessions/{id}/findings`, and
   `GET /api/findings/{id}`.
+- **Security posture (Stage 5)** — every analysis produces an explainable posture
+  snapshot: 0-100 score, descriptive state (healthy → critical_exposure), overall
+  confidence, five correlated posture factors, per-protocol and per-host aggregation, and
+  a deterministic priority ranking — each element citing the findings it derives from. The
+  scoring formula (severity weights x confidence x prevalence, factor correlation) is
+  documented in ADR 005 and surfaced in the UI under "How is this calculated?".
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

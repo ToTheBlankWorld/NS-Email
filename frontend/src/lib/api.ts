@@ -349,6 +349,137 @@ export async function getFinding(
 }
 
 // ---------------------------------------------------------------------------
+// Posture
+// ---------------------------------------------------------------------------
+
+export type PostureState =
+  | "healthy"
+  | "acceptable"
+  | "degraded"
+  | "high_exposure"
+  | "critical_exposure"
+  | "insufficient_evidence";
+
+export type PostureFactor = {
+  factor: string;
+  label: string;
+  status: string;
+  score_contribution: number;
+  affected_sessions: number;
+  affected_hosts: number;
+  contributing_finding_ids: string[];
+  explanation: string;
+};
+
+export type HostPosture = {
+  host_id: string;
+  ip: string;
+  sessions: number;
+  protocols: string[];
+  findings_count: number;
+  highest_severity: string | null;
+  affected: boolean;
+  tls_versions: string[];
+};
+
+export type ProtocolPostureRecord = {
+  protocol: string;
+  sessions: number;
+  findings: number;
+  affected_sessions: number;
+  status: string;
+};
+
+export type PriorityItemRecord = {
+  priority_score: number;
+  rule_id: string;
+  title: string;
+  severity: FindingSeverity;
+  confidence: string;
+  affected_sessions: number;
+  total_sessions: number;
+  prevalence: number;
+  affected_hosts: number;
+  evidence_count: number;
+  finding_ids: string[];
+  explanation: string;
+};
+
+export type SecurityPosture = {
+  capture_id: string;
+  analysis_version: string;
+  policy_id: string;
+  policy_version: string;
+  posture_state: PostureState;
+  overall_score: number | null;
+  confidence: string;
+  total_sessions: number;
+  affected_sessions: number;
+  affected_hosts: number;
+  total_hosts: number;
+  finding_counts_by_severity: Record<string, number>;
+  category_breakdown: Record<string, number>;
+  factors: PostureFactor[];
+  hosts: HostPosture[];
+  protocols: ProtocolPostureRecord[];
+  priorities: PriorityItemRecord[];
+  explanation: string[];
+  generated_at: string;
+};
+
+/** Fetch the explainable posture snapshot for one capture. */
+export async function getPosture(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<SecurityPosture> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/posture`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as SecurityPosture;
+}
+
+/** Observed hosts with posture context. */
+export async function listPostureHosts(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<HostPosture[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/hosts`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as HostPosture[];
+}
+
+/** Posture aggregated per email protocol. */
+export async function getProtocolPosture(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<ProtocolPostureRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/posture/protocols`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as ProtocolPostureRecord[];
+}
+
+/** Findings ordered by the deterministic priority model. */
+export async function getPriorities(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<PriorityItemRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/priorities`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as PriorityItemRecord[];
+}
+
+// ---------------------------------------------------------------------------
 // Analysis & sessions
 // ---------------------------------------------------------------------------
 

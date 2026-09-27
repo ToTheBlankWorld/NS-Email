@@ -13,7 +13,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from engine.core.certificate import CertificateEvidence
 from engine.core.events import EventDirection, EventType, SessionEvent
@@ -114,6 +114,17 @@ CREATE TABLE IF NOT EXISTS findings (
 );
 CREATE INDEX IF NOT EXISTS idx_findings_capture ON findings(capture_id);
 CREATE INDEX IF NOT EXISTS idx_findings_session ON findings(session_id);
+CREATE TABLE IF NOT EXISTS posture_snapshots (
+    capture_id TEXT PRIMARY KEY,
+    generated_at TEXT NOT NULL,
+    analysis_version TEXT NOT NULL,
+    policy_id TEXT NOT NULL,
+    policy_version TEXT NOT NULL,
+    overall_score INTEGER,
+    posture_state TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    payload TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_sessions_capture ON sessions(capture_id);
 CREATE TABLE IF NOT EXISTS session_events (
     session_id TEXT NOT NULL,
@@ -170,6 +181,10 @@ class SessionStore(Protocol):
     def list_findings_for_session(self, session_id: str) -> list[SecurityFinding]: ...
 
     def get_finding(self, finding_id: str) -> SecurityFinding | None: ...
+
+    def replace_posture_snapshot(self, snapshot: dict[str, Any]) -> None: ...
+
+    def get_posture_snapshot(self, capture_id: str) -> dict[str, Any] | None: ...
 
 
 def _iso(value: datetime) -> str:
@@ -623,3 +638,38 @@ class SQLiteSessionStore:
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot query findings: {error}") from error
         return [_finding_from_row(row) for row in rows]
+
+    def replace_posture_snapshot(self, snapshot: dict[str, Any]) -> None:
+        """Atomically replace the posture snapshot for the capture."""
+        try:
+            with self._session() as connection:
+                connection.execute(
+                    "INSERT OR REPLACE INTO posture_snapshots "
+                    "(capture_id, generated_at, analysis_version, policy_id, "
+                    "policy_version, overall_score, posture_state, confidence, payload) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    (
+                        snapshot["capture_id"],
+                        snapshot["generated_at"],
+                        snapshot["analysis_version"],
+                        snapshot["policy_id"],
+                        snapshot["policy_version"],
+                        snapshot["overall_score"],
+                        snapshot["posture_state"],
+                        snapshot["confidence"],
+                        json.dumps(snapshot),
+                    ),
+                )
+        except (sqlite3.Error, KeyError) as error:
+            raise CaptureStorageError(f"cannot persist posture snapshot: {error}") from error
+
+    def get_posture_snapshot(self, capture_id: str) -> dict[str, Any] | None:
+        try:
+            with self._session() as connection:
+                row = connection.execute(
+                    "SELECT payload FROM posture_snapshots WHERE capture_id = ?",
+                    (capture_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load posture snapshot: {error}") from error
+        return json.loads(row["payload"]) if row else None

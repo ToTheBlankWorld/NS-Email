@@ -6,16 +6,19 @@ status — a failed analysis is a result, not a crash.
 """
 
 import logging
+from typing import Any
 
 from engine.analysis import analyze_capture_packets
 from engine.core.findings import SecurityFinding
 from engine.core.session import Session
 from engine.detection import evaluate_sessions
 from engine.detection.policy import Policy
+from engine.detection.posture import build_posture
 from engine.ingestion.errors import CaptureStorageError
 from engine.transport.packets import PacketSourceError, PcapPacketSource
 
 from app.registry import CaptureRegistry
+from app.services.posture_serializer import posture_to_payload
 from app.storage import CaptureStorage
 from app.store import AnalysisRecord, SessionStore
 
@@ -84,6 +87,8 @@ class CaptureAnalysisService:
         self._store.replace_for_capture(capture.id, result.sessions)
         findings = evaluate_sessions(result.sessions, self._policy)
         self._store.replace_findings_for_capture(capture.id, findings)
+        posture = build_posture(capture.id, result.sessions, findings, self._policy)
+        self._store.replace_posture_snapshot(posture_to_payload(posture))
         self._store.record_completed(capture.id, len(result.sessions), result.coverage_warnings)
         logger.info(
             "analyzed %s: %d session(s), %d finding(s)",
@@ -110,3 +115,6 @@ class CaptureAnalysisService:
 
     def finding(self, finding_id: str) -> SecurityFinding | None:
         return self._store.get_finding(finding_id)
+
+    def posture_snapshot(self, capture_id: str) -> dict[str, Any] | None:
+        return self._store.get_posture_snapshot(capture_id)

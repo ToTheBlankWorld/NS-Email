@@ -267,6 +267,51 @@ class FindingResponse(BaseModel):
         )
 
 
+class PostureFactorOut(BaseModel):
+    factor: str
+    label: str
+    status: str
+    score_contribution: float
+    affected_sessions: int
+    affected_hosts: int
+    contributing_finding_ids: list[str] = Field(default_factory=list)
+    explanation: str
+
+
+class HostPostureResponse(BaseModel):
+    host_id: str
+    ip: str
+    sessions: int
+    protocols: list[str] = Field(default_factory=list)
+    findings_count: int
+    highest_severity: str | None = None
+    affected: bool
+    tls_versions: list[str] = Field(default_factory=list)
+
+
+class ProtocolPostureResponse(BaseModel):
+    protocol: str
+    sessions: int
+    findings: int
+    affected_sessions: int
+    status: str
+
+
+class PriorityResponse(BaseModel):
+    priority_score: float
+    rule_id: str
+    title: str
+    severity: str
+    confidence: str
+    affected_sessions: int
+    total_sessions: int
+    prevalence: float
+    affected_hosts: int
+    evidence_count: int
+    finding_ids: list[str] = Field(default_factory=list)
+    explanation: str
+
+
 class SessionEventOut(BaseModel):
     seq: int
     type: str
