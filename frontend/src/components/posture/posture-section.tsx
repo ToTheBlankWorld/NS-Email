@@ -56,7 +56,7 @@ export function PostureSection({ captureId }: { captureId: string }) {
   const [state, setState] = useState<PostureLoadState>({ status: "loading" });
   const [hosts, setHosts] = useState<HostPosture[]>([]);
   const [priorities, setPriorities] = useState<PriorityItemRecord[]>([]);
-  const [protocols, setProtocols] = useState<ProtocolPostureRecord[]>([]);
+  const [protocols] = useState<ProtocolPostureRecord[]>([]);
 
   const load = useCallback(
     (signal?: AbortSignal) => {

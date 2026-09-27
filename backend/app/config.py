@@ -18,6 +18,10 @@ CAPTURE_STORAGE_ENV_VAR = "NS_EMAIL_CAPTURE_STORAGE"
 MAX_CAPTURE_BYTES_ENV_VAR = "NS_EMAIL_MAX_CAPTURE_BYTES"
 TSHARK_PATH_ENV_VAR = "NS_EMAIL_TSHARK_PATH"
 POLICY_FILE_ENV_VAR = "NS_EMAIL_POLICY_FILE"
+AI_PROVIDER_ENV_VAR = "NS_EMAIL_AI_PROVIDER"
+AI_MODEL_ENV_VAR = "NS_EMAIL_AI_MODEL"
+AI_BASE_URL_ENV_VAR = "NS_EMAIL_AI_BASE_URL"
+AI_API_KEY_ENV_VAR = "NS_EMAIL_AI_API_KEY"
 
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = ("http://localhost:3000",)
 DEFAULT_CAPTURE_STORAGE_DIR = Path("data/captures")
@@ -35,6 +39,10 @@ class Settings:
     tshark_path: str | None = None
     inspector_timeout_seconds: float = DEFAULT_INSPECTOR_TIMEOUT_SECONDS
     policy_file: str | None = None
+    ai_provider: str = ""
+    ai_model: str = ""
+    ai_base_url: str = ""
+    ai_api_key: str = ""
 
 
 def _app_version() -> str:
@@ -74,4 +82,8 @@ def load_settings() -> Settings:
         max_capture_bytes=_max_capture_bytes(),
         tshark_path=tshark_raw or None,
         policy_file=os.environ.get(POLICY_FILE_ENV_VAR) or None,
+        ai_provider=os.environ.get(AI_PROVIDER_ENV_VAR) or "",
+        ai_model=os.environ.get(AI_MODEL_ENV_VAR) or "",
+        ai_base_url=os.environ.get(AI_BASE_URL_ENV_VAR) or "",
+        ai_api_key=os.environ.get(AI_API_KEY_ENV_VAR) or "",
     )

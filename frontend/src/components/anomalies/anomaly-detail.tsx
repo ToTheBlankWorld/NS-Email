@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, LoaderCircle, RefreshCw, ShieldQuestion } from "lucide-react";
+import { ArrowLeft, LoaderCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ApiError, getAnomaly, type AnomalyRecord } from "@/lib/api";
+import { getAnomaly, type AnomalyRecord } from "@/lib/api";
 import { formatTimestamp } from "@/lib/format";
 
 type DetailState =

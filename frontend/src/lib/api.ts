@@ -615,3 +615,51 @@ export async function getSession(
   if (!response.ok) throw await parseError(response);
   return (await response.json()) as SessionRecord;
 }
+
+
+// ---------------------------------------------------------------------------
+// AI Analyst
+// ---------------------------------------------------------------------------
+
+export type AIStatus = {
+  configured: boolean;
+  provider: string;
+  model: string;
+  local: boolean;
+};
+
+export type AIQueryResult = {
+  status: string;
+  answer?: string;
+  error?: string;
+  query?: string;
+  session_id?: string;
+  key_observations?: string[];
+  interpretations?: string[];
+  uncertainties?: string[];
+  model?: string;
+  provider?: string;
+  validation_status?: string;
+};
+
+export async function getAIStatus(signal?: AbortSignal): Promise<AIStatus> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/status`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AIStatus;
+}
+
+export async function queryAI(
+  sessionId: string,
+  question: string,
+): Promise<AIQueryResult> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, session_id: sessionId }),
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AIQueryResult;
+}

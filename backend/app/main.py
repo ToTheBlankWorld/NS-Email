@@ -4,6 +4,8 @@ import logging
 import shutil
 from pathlib import Path
 
+from engine.ai.provider import LLMProvider, MockLLMProvider, OpenAICompatibleProvider
+from engine.ai.service import AIAnalystService
 from engine.detection import load_builtin_policy, load_policy_from_file
 from engine.detection.policy import Policy
 from engine.ingestion.inspector import CaptureInspector, TsharkCaptureInspector
@@ -13,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
-from app.routers import anomalies, captures, findings, graph, health, posture, sessions
+from app.routers import ai, anomalies, captures, findings, graph, health, posture, sessions
 from app.services.analysis import CaptureAnalysisService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
@@ -45,6 +47,22 @@ def _load_policy(settings: Settings) -> "Policy":
     return load_builtin_policy()
 
 
+def _resolve_ai_provider(settings: Settings) -> LLMProvider | None:
+    if settings.ai_provider == "mock":
+        return MockLLMProvider()
+    if settings.ai_provider in ("openai", "ollama") and settings.ai_base_url:
+        return OpenAICompatibleProvider(
+            settings.ai_base_url, settings.ai_model, settings.ai_api_key
+        )
+    return None
+
+
+def _make_ai_service(
+    provider: LLMProvider | None, analysis_service: CaptureAnalysisService
+) -> AIAnalystService:
+    return AIAnalystService(provider=provider, analysis_service=analysis_service)
+
+
 def _configure_services(app: FastAPI, settings: Settings) -> None:
     storage = CaptureStorage(settings.capture_storage_dir)
     registry = SQLiteCaptureRegistry(storage.registry_path())
@@ -60,12 +78,15 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
         inspector=_resolve_inspector(settings),
         max_capture_bytes=settings.max_capture_bytes,
     )
-    app.state.analysis_service = CaptureAnalysisService(
+    analysis_service = CaptureAnalysisService(
         storage=storage,
         registry=registry,
         store=store,
         policy=policy,
     )
+    app.state.analysis_service = analysis_service
+    ai_provider = _resolve_ai_provider(settings)
+    app.state.ai_service = _make_ai_service(ai_provider, analysis_service)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -92,6 +113,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(posture.router)
     app.include_router(anomalies.router)
     app.include_router(graph.router)
+    app.include_router(ai.router)
     _configure_services(app, settings)
     return app
 

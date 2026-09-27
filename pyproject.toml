@@ -113,6 +113,11 @@ files = [
   "engine/ingestion",
   "engine/protocols",
   "engine/transport",
+  "engine/detection",
+  "engine/crypto",
+  "engine/ml",
+  "engine/graph",
+  "engine/ai",
 ]
 strict = true
 pretty = true
@@ -120,4 +125,3 @@ pretty = true
 [[tool.mypy.overrides]]
 module = "sklearn.*"
 ignore_missing_imports = true
-show_error_codes = true

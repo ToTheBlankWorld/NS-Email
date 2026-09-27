@@ -188,3 +188,29 @@ python -m ruff check backend engine
 python -m mypy
 cd frontend && npm run build
 ```
+
+
+## AI Analyst (Stage 8)
+
+The AI forensic analyst consumes structured investigation context (never raw
+evidence) and produces explainable responses with citations. Provider configuration:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NS_EMAIL_AI_PROVIDER` | *(empty = disabled)* | `mock`, `openai`, or `ollama` |
+| `NS_EMAIL_AI_MODEL` | *(empty)* | Model identifier |
+| `NS_EMAIL_AI_BASE_URL` | *(empty)* | API base URL (e.g. `http://localhost:11434`) |
+| `NS_EMAIL_AI_API_KEY` | *(empty)* | API key (never sent to the frontend) |
+
+```bash
+# Ask the AI analyst about a session
+curl -X POST http://127.0.0.1:8000/api/ai/query   -H "Content-Type: application/json"   -d '{"question": "Explain this session", "session_id": "session_..."}'
+
+# Check AI status
+curl http://127.0.0.1:8000/api/ai/status
+```
+
+Without a provider configured, the AI status reports `not_configured` and queries
+return a structured error. No data is sent to external services unless explicitly
+configured. All AI responses are validated against the supplied evidence before
+being returned.

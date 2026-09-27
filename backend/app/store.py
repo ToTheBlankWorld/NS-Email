@@ -163,6 +163,20 @@ CREATE TABLE IF NOT EXISTS graph_edges (
     PRIMARY KEY (source_node_id, target_node_id, edge_type, capture_id)
 );
 CREATE INDEX IF NOT EXISTS idx_graph_edges_capture ON graph_edges(capture_id);
+CREATE TABLE IF NOT EXISTS ai_history (
+    response_id TEXT PRIMARY KEY,
+    capture_id TEXT NOT NULL,
+    session_id TEXT,
+    query TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    context_version TEXT NOT NULL,
+    validation_status TEXT NOT NULL,
+    generated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_ai_history_capture ON ai_history(capture_id);
 CREATE TABLE IF NOT EXISTS posture_snapshots (
     capture_id TEXT PRIMARY KEY,
     generated_at TEXT NOT NULL,
@@ -886,6 +900,46 @@ class SQLiteSessionStore:
             for r in edges
         ]
         return node_list, edge_list
+
+    def save_ai_response(self, capture_id: str, response: dict[str, Any]) -> None:
+        generated_at = response["generated_at"]
+        if isinstance(generated_at, datetime):
+            generated_at = generated_at.isoformat()
+        try:
+            with self._session() as connection:
+                connection.execute(
+                    "INSERT OR REPLACE INTO ai_history "
+                    "(response_id, capture_id, session_id, query, answer, "
+                    "provider, model, prompt_version, context_version, "
+                    "validation_status, generated_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        response["response_id"],
+                        capture_id,
+                        response.get("session_id"),
+                        response["query"],
+                        response["answer"],
+                        response["provider"],
+                        response["model"],
+                        response["prompt_version"],
+                        response["context_version"],
+                        response["validation_status"],
+                        str(generated_at),
+                    ),
+                )
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot save AI response: {error}") from error
+
+    def list_ai_history(self, capture_id: str) -> list[dict[str, Any]]:
+        try:
+            with self._session() as connection:
+                rows = connection.execute(
+                    "SELECT * FROM ai_history WHERE capture_id = ? ORDER BY generated_at DESC",
+                    (capture_id,),
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load AI history: {error}") from error
+        return [dict(row) for row in rows]
 
     def _findings_query(self, query: str, params: tuple[object, ...]) -> list[SecurityFinding]:
         try:

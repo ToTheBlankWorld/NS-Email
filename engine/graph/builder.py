@@ -314,7 +314,7 @@ class EvidenceGraphBuilder:
                 self._add_edge(e_nid, s_nid, EdgeType.EVENT_BELONGS_TO_SESSION, "timeline event")
 
         # Certificate correlation (shared fingerprints)
-        for fingerprint, cert_sessions in cert_by_fp.items():
+        for _fingerprint, cert_sessions in cert_by_fp.items():
             if len(cert_sessions) < 2:
                 continue
             first = cert_sessions[0].certificates[0]

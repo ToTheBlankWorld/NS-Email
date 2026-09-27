@@ -10,7 +10,7 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 6 — TLS behavioral anomaly detection.**
+> **Status: Stage 8 — evidence-grounded AI forensic analyst.**
 > The platform now runs an IsolationForest anomaly detector over structured session
 > features to identify TLS sessions whose behavior differs from the capture-local
 > baseline. Deterministic findings and the posture score are unchanged; the anomaly
@@ -118,11 +118,10 @@ Dependencies are added only when a stage actually needs them.
 | 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | done |
 | 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | done |
 | 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | done |
-| 6     | TLS behavioral anomaly detection (IsolationForest over session features) | **current** |
-| 7+    | Evidence graph, AI-assisted explanation, reports | planned |
-| 4+    | Cryptographic analysis, rule-based findings                  | planned    |
-| 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
-| 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
+| 6     | TLS behavioral anomaly detection (IsolationForest over session features) | done |
+| 7     | Forensic evidence graph and investigation intelligence | done |
+| 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | **current** |
+| 9+    | Reports, dashboard depth | planned |
 
 Each stage lands as its own reviewed, tested commit.
 
@@ -168,6 +167,12 @@ Each stage lands as its own reviewed, tested commit.
   from raw payloads. Sessions below the minimum baseline size report
   `insufficient_evidence`; model failures report `model_error`. Results are kept strictly
   separate from Stage 4 findings and the Stage 5 posture score. All processing is local.
+- **AI forensic analyst (Stage 8)** — evidence-grounded AI assistant that consumes
+  structured investigation context (never raw evidence) and produces explainable
+  responses with observed/interpretation/uncertainty sections and evidence citations.
+  Provider abstraction supports OpenAI-compatible APIs and local models (Ollama);
+  a deterministic mock provider is used when no external provider is configured.
+  Prompt injection defense, citation validation, and credential redaction are built in.
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

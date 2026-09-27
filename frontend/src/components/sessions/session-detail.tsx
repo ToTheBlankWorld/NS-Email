@@ -14,6 +14,7 @@ import {
 
 import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
+import { AIPanel } from "@/components/ai/ai-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -441,6 +442,8 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       {session.certificates && session.certificates.length > 0 ? (
         <CertificateChain certificates={session.certificates} />
       ) : null}
+
+      <AIPanel sessionId={session.id} />
 
       <Card>
         <CardHeader>
