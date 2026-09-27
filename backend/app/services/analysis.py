@@ -183,3 +183,6 @@ class CaptureAnalysisService:
 
     def anomaly_for_session(self, session_id: str) -> dict[str, Any] | None:
         return self._store.get_anomaly_for_session(session_id)
+
+    def graph(self, capture_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None:
+        return self._store.get_graph(capture_id)

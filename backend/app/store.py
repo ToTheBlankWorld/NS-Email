@@ -144,6 +144,25 @@ CREATE TABLE IF NOT EXISTS anomaly_results (
 );
 CREATE INDEX IF NOT EXISTS idx_anomalies_capture ON anomaly_results(capture_id);
 CREATE INDEX IF NOT EXISTS idx_anomalies_session ON anomaly_results(session_id);
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    node_id TEXT NOT NULL,
+    capture_id TEXT NOT NULL,
+    node_type TEXT NOT NULL,
+    label TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    PRIMARY KEY (node_id, capture_id)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_nodes_capture ON graph_nodes(capture_id);
+CREATE TABLE IF NOT EXISTS graph_edges (
+    source_node_id TEXT NOT NULL,
+    target_node_id TEXT NOT NULL,
+    edge_type TEXT NOT NULL,
+    basis TEXT NOT NULL,
+    capture_id TEXT NOT NULL,
+    PRIMARY KEY (source_node_id, target_node_id, edge_type, capture_id)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_edges_capture ON graph_edges(capture_id);
 CREATE TABLE IF NOT EXISTS posture_snapshots (
     capture_id TEXT PRIMARY KEY,
     generated_at TEXT NOT NULL,
@@ -219,6 +238,14 @@ class SessionStore(Protocol):
     def get_anomaly_result(self, anomaly_id: str) -> dict[str, Any] | None: ...
 
     def get_anomaly_for_session(self, session_id: str) -> dict[str, Any] | None: ...
+
+    def replace_graph(
+        self, capture_id: str, nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+    ) -> None: ...
+
+    def get_graph(
+        self, capture_id: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None: ...
 
     def get_anomaly_summary(self, capture_id: str) -> dict[str, int] | None: ...
 
@@ -782,6 +809,83 @@ class SQLiteSessionStore:
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot load anomaly result: {error}") from error
         return _anomaly_from_row(row) if row else None
+
+    def replace_graph(
+        self, capture_id: str, nodes: list[dict[str, Any]], edges: list[dict[str, Any]]
+    ) -> None:
+        try:
+            with self._session() as connection:
+                connection.execute("DELETE FROM graph_nodes WHERE capture_id = ?", (capture_id,))
+                connection.execute("DELETE FROM graph_edges WHERE capture_id = ?", (capture_id,))
+                for node in nodes:
+                    connection.execute(
+                        "INSERT INTO graph_nodes "
+                        "(node_id, capture_id, node_type, label, source_id, metadata) "
+                        "VALUES (?,?,?,?,?,?)",
+                        (
+                            node["node_id"],
+                            capture_id,
+                            node["node_type"],
+                            node["label"],
+                            node["source_id"],
+                            node["metadata"],
+                        ),
+                    )
+                for edge in edges:
+                    connection.execute(
+                        "INSERT INTO graph_edges "
+                        "(source_node_id, target_node_id, edge_type, basis, capture_id) "
+                        "VALUES (?,?,?,?,?)",
+                        (
+                            edge["source_node_id"],
+                            edge["target_node_id"],
+                            edge["edge_type"],
+                            edge["basis"],
+                            capture_id,
+                        ),
+                    )
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot persist graph: {error}") from error
+
+    def get_graph(
+        self, capture_id: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None:
+        try:
+            with self._session() as connection:
+                nodes = connection.execute(
+                    "SELECT * FROM graph_nodes WHERE capture_id = ? ORDER BY node_type, node_id",
+                    (capture_id,),
+                ).fetchall()
+                edges = connection.execute(
+                    "SELECT * FROM graph_edges WHERE capture_id = ? "
+                    "ORDER BY source_node_id, target_node_id",
+                    (capture_id,),
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load graph: {error}") from error
+        if not nodes and not edges:
+            return None
+        node_list = [
+            {
+                "node_id": r["node_id"],
+                "capture_id": r["capture_id"],
+                "node_type": r["node_type"],
+                "label": r["label"],
+                "source_id": r["source_id"],
+                "metadata": json.loads(r["metadata"]),
+            }
+            for r in nodes
+        ]
+        edge_list = [
+            {
+                "source_node_id": r["source_node_id"],
+                "target_node_id": r["target_node_id"],
+                "edge_type": r["edge_type"],
+                "basis": r["basis"],
+            }
+            for r in edges
+        ]
+        return node_list, edge_list
 
     def _findings_query(self, query: str, params: tuple[object, ...]) -> list[SecurityFinding]:
         try:
