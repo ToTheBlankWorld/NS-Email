@@ -9,7 +9,7 @@ from ipaddress import ip_address
 from typing import Any
 
 import pytest
-from engine.core.capture import Capture, CaptureFormat
+from engine.core.capture import Capture, CaptureFormat, CaptureStatus
 from engine.core.certificate import CertificateEvidence
 from engine.core.findings import FindingCategory, FindingSeverity, SecurityFinding
 from engine.core.session import EmailProtocol, Session
@@ -23,12 +23,18 @@ T2 = datetime(2026, 9, 27, 12, 30, 0, tzinfo=UTC)
 
 def sample_evidence() -> dict[str, Any]:
     capture = Capture(
+        id="capture_" + "b" * 12,
         filename="hq-mail.pcapng",
         size_bytes=8192,
         sha256="b" * 64,
         format=CaptureFormat.PCAPNG,
+        status=CaptureStatus.READY,
+        packet_count=12,
         ingested_at=T2,
         capture_started_at=T0,
+        capture_ended_at=T1,
+        duration_seconds=1.5,
+        link_type="Ethernet",
     )
     session = Session(
         capture_id=capture.id,

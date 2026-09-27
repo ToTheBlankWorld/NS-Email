@@ -88,9 +88,9 @@ export function SystemStatus() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <StatusValue tone="off">Not yet available</StatusValue>
+          <StatusValue tone="ok">Available</StatusValue>
           <p className="mt-1 text-[11px] text-muted-foreground/80">
-            PCAP intake arrives with the ingestion stage.
+            Upload PCAP/PCAPNG evidence from the capture panel.
           </p>
         </CardContent>
       </Card>

@@ -103,7 +103,7 @@ export function Sidebar({ onNavigate, className }: SidebarProps) {
 
       <div className="shrink-0 border-t border-sidebar-border px-4 py-3">
         <p className="font-mono text-[11px] text-muted-foreground">
-          v0.1.0 · Stage 0 foundation
+          v0.1.0 · Stage 1 ingestion
         </p>
       </div>
     </aside>

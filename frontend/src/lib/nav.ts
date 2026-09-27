@@ -30,7 +30,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Analysis",
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard, available: true },
-      { label: "Captures", href: "/captures", icon: FileArchive, available: false },
+      { label: "Captures", href: "/captures", icon: FileArchive, available: true },
       { label: "Sessions", href: "/sessions", icon: Waypoints, available: false },
       { label: "TLS & Certificates", href: "/certificates", icon: KeyRound, available: false },
       { label: "Findings", href: "/findings", icon: ShieldAlert, available: false },

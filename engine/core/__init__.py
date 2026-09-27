@@ -5,7 +5,7 @@ SQLite and exchanged canonically between engine, API, and reports.
 """
 
 from engine.core.base import ForensicBase, new_evidence_id, utc_now
-from engine.core.capture import MAX_CAPTURE_SIZE_BYTES, Capture, CaptureFormat
+from engine.core.capture import MAX_CAPTURE_SIZE_BYTES, Capture, CaptureFormat, CaptureStatus
 from engine.core.certificate import CertificateEvidence
 from engine.core.findings import FindingCategory, FindingSeverity, SecurityFinding
 from engine.core.session import EmailProtocol, Session
@@ -15,6 +15,7 @@ __all__ = [
     "MAX_CAPTURE_SIZE_BYTES",
     "Capture",
     "CaptureFormat",
+    "CaptureStatus",
     "CertificateEvidence",
     "EmailProtocol",
     "FindingCategory",

@@ -31,6 +31,7 @@ classifiers = [
 dependencies = [
   "fastapi>=0.115",
   "pydantic>=2.9",
+  "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.32",
 ]
 
@@ -86,6 +87,9 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
 "engine/tests/**" = ["S101"]
+# The packet inspector launches tshark with fixed argument arrays (never a
+# shell, never user-controlled strings), so subprocess use is reviewed here.
+"engine/ingestion/inspector.py" = ["S404", "S603"]
 
 [tool.ruff.format]
 quote-style = "double"

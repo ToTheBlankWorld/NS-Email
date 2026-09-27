@@ -9,7 +9,7 @@ Prerequisites and commands for running, testing, and validating NS-Email locally
 | Python           | 3.12+       | backend, engine     | https://www.python.org/downloads/                |
 | Node.js          | 20+         | frontend            | npm 10+ ships with it                            |
 | Git              | any recent  | everything          |                                                  |
-| tshark (Wireshark) | 4.x       | packet-analysis stages only | **Not required for Stage 0.** Install with the packet-analysis stages (Wireshark installer includes it). On Debian/Ubuntu: `sudo apt install tshark`. |
+| tshark (Wireshark) | 4.x       | packet metadata extraction | **Optional in Stage 1.** Without it, captures are still validated, hashed, and registered (status `registered`), but no packet metadata is extracted. Install Wireshark (includes tshark) or on Debian/Ubuntu: `sudo apt install tshark`. Set `NS_EMAIL_TSHARK_PATH` if tshark is not on `PATH`. |
 
 `make` targets exist for POSIX environments (Linux, macOS, WSL). On Windows, run the plain
 commands below directly.
@@ -43,12 +43,33 @@ uvicorn app.main:app --reload --port 8000
 
 ### Environment variables
 
-| Variable                 | Default                  | Purpose                          |
-| ------------------------ | ------------------------ | -------------------------------- |
-| `NS_EMAIL_CORS_ORIGINS`  | `http://localhost:3000`  | Comma-separated CORS allow-list  |
+| Variable                     | Default                  | Purpose                                             |
+| ---------------------------- | ------------------------ | --------------------------------------------------- |
+| `NS_EMAIL_CORS_ORIGINS`      | `http://localhost:3000`  | Comma-separated CORS allow-list                     |
+| `NS_EMAIL_CAPTURE_STORAGE`   | `data/captures`          | Capture evidence, registry, and staging root        |
+| `NS_EMAIL_MAX_CAPTURE_BYTES` | `2147483648` (2 GiB)     | Upload size limit (capped by the engine ceiling)    |
+| `NS_EMAIL_TSHARK_PATH`       | — (uses `PATH` lookup)   | Explicit tshark binary path for packet inspection   |
 
-Copy `.env.example` for a template of supported variables. Stage 0 reads plain environment
+Copy `.env.example` for a template of supported variables. Stage 1 reads plain environment
 variables only (no automatic `.env` loading); export them in your shell when overriding.
+
+### Capture ingestion (Stage 1)
+
+```bash
+# Ingest a capture from the command line
+curl -F "file=@sample.pcap" http://127.0.0.1:8000/api/captures
+
+# List registered captures / fetch one
+curl http://127.0.0.1:8000/api/captures
+curl http://127.0.0.1:8000/api/captures/<capture_id>
+```
+
+Evidence identity is the SHA-256 of the bytes: re-uploading the same capture returns the
+existing registration (`duplicate: true`). Evidence files live under
+`NS_EMAIL_CAPTURE_STORAGE/<capture_id>/evidence.<format>` — never under the upload
+filename. Without tshark, captures register with `status: "registered"` and explicit
+`null` packet metadata; with tshark they become `status: "ready"` with packet count,
+capture time range, duration, and link type.
 
 ## Frontend (Next.js)
 
