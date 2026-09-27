@@ -480,6 +480,103 @@ export async function getPriorities(
 }
 
 // ---------------------------------------------------------------------------
+// Anomalies
+// ---------------------------------------------------------------------------
+
+export type AnomalyDeviation = {
+  feature: string;
+  observed: string;
+  baseline: string;
+  deviation: string;
+};
+
+export type AnomalyEvidenceRef = {
+  source: string;
+  packet_numbers: number[];
+  detail: string | null;
+};
+
+export type AnomalyRecord = {
+  anomaly_id: string;
+  capture_id: string;
+  session_id: string;
+  protocol: string | null;
+  status: string;
+  score: number | null;
+  band: string | null;
+  model_id: string | null;
+  model_version: string;
+  feature_schema_version: string;
+  top_deviations: AnomalyDeviation[];
+  baseline_summary: Record<string, string>;
+  evidence_refs: AnomalyEvidenceRef[];
+  generated_at: string;
+};
+
+export type AnomalySummary = {
+  normal: number;
+  unusual: number;
+  anomalous: number;
+  highly_anomalous: number;
+  insufficient_evidence: number;
+  model_error: number;
+  total_evaluated: number;
+  total_sessions: number;
+};
+
+/** Behavioral anomaly results for all evaluated sessions in a capture. */
+export async function listAnomalies(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<AnomalyRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/anomalies`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AnomalyRecord[];
+}
+
+/** Behavioral anomaly result for one session. */
+export async function getSessionAnomaly(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<AnomalyRecord> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/sessions/${encodeURIComponent(sessionId)}/anomaly`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AnomalyRecord;
+}
+
+/** Anomaly band summary counts for a capture. */
+export async function getAnomalySummary(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<AnomalySummary> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/anomaly-summary`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AnomalySummary;
+}
+
+/** One anomaly result with deviations and evidence. */
+export async function getAnomaly(
+  anomalyId: string,
+  signal?: AbortSignal,
+): Promise<AnomalyRecord> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/anomalies/${encodeURIComponent(anomalyId)}`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AnomalyRecord;
+}
+
+// ---------------------------------------------------------------------------
 // Analysis & sessions
 // ---------------------------------------------------------------------------
 

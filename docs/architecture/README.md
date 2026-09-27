@@ -70,6 +70,7 @@ Stage 1 added `engine/ingestion` (evidence acquisition); Stage 2 adds
 | `engine.protocols`     | SMTP/IMAP/POP3 detection with evidence, session reconstruction, credential redaction |
 | `engine.crypto`        | TLS record/handshake parsing, hello extensions, X.509 chain extraction (Stage 3) |
 | `engine.detection`     | Versioned policy (securemailscope-baseline v1.0), 15 deterministic rules, findings evaluator, posture model (Stages 4-5) |
+| `engine.ml`            | Behavioral anomaly detection: typed feature extraction, IsolationForest model (Stage 6) |
 | `engine.analysis`      | Pipeline orchestration: packets → flows → sessions |
 
 Cross-cutting guarantees enforced by `engine/core/base.py`:
@@ -171,7 +172,7 @@ analysis with the real session count and protocol breakdown, a sessions table, a
 session detail view with a per-event timeline and TLS-boundary section. No fake
 statistics, findings, or AI output.
 
-The first five stages of the pipeline are implemented; the rest is future work.
+The first six stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG
@@ -231,7 +232,8 @@ NS-Email/
 │   └── tests/          API, storage, registry, and security tests
 ├── engine/
 │   ├── core/           typed evidence models (Stage 0)
-│   ├── detection/      policy engine: rules, registry, evaluator (Stage 4)
+│   ├── detection/      policy engine: rules, registry, evaluator, posture (Stage 4)
+│   ├── ml/             behavioral anomaly detection (Stage 6)
 │   ├── crypto/         TLS record/handshake parsing, X.509 extraction (Stage 3)
 │   ├── ingestion/      capture validation, hashing, storage ids, inspection (Stage 1)
 │   ├── transport/      packet source, flows, reassembly (Stage 2)

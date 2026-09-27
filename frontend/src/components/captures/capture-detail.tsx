@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { AnomaliesSection } from "@/components/anomalies/anomalies-section";
 import { FindingsSection } from "@/components/findings/findings-section";
 import { PostureSection } from "@/components/posture/posture-section";
 import { HashRow } from "@/components/hash-row";
@@ -399,6 +400,8 @@ export function CaptureDetail({ captureId }: { captureId: string }) {
       <SessionsTable captureId={capture.id} />
 
       <FindingsSection captureId={capture.id} />
+
+      <AnomaliesSection captureId={capture.id} />
 
       <PostureSection captureId={capture.id} />
     </div>

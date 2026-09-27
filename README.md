@@ -10,12 +10,11 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 5 — explainable security posture.**
-> The platform now aggregates deterministic findings into an explainable cryptographic
-> security posture: a 0-100 score with documented severity weights, confidence and
-> prevalence handling, factor/protocol/host breakdowns, and a deterministic priority
-> ranking. The score is a SecureMailScope-defined analytical metric — no ML, no AI, no
-> industry-standard claims. See [Development stages](#development-stages).
+> **Status: Stage 6 — TLS behavioral anomaly detection.**
+> The platform now runs an IsolationForest anomaly detector over structured session
+> features to identify TLS sessions whose behavior differs from the capture-local
+> baseline. Deterministic findings and the posture score are unchanged; the anomaly
+> layer is an additional intelligence lens. See [Development stages](#development-stages).
 
 ---
 
@@ -118,8 +117,9 @@ Dependencies are added only when a stage actually needs them.
 | 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | done |
 | 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | done |
 | 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | done |
-| 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | **current** |
-| 6+    | ML anomaly analysis, evidence graph, AI-assisted explanation, reports | planned |
+| 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | done |
+| 6     | TLS behavioral anomaly detection (IsolationForest over session features) | **current** |
+| 7+    | Evidence graph, AI-assisted explanation, reports | planned |
 | 4+    | Cryptographic analysis, rule-based findings                  | planned    |
 | 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
 | 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
@@ -162,6 +162,12 @@ Each stage lands as its own reviewed, tested commit.
   a deterministic priority ranking — each element citing the findings it derives from. The
   scoring formula (severity weights x confidence x prevalence, factor correlation) is
   documented in ADR 005 and surfaced in the UI under "How is this calculated?".
+- **Behavioral anomalies (Stage 6)** — after deterministic analysis, an IsolationForest
+  model trained on the capture's own sessions identifies behavioral outliers. Feature
+  vectors are versioned, sanitized, and derived only from structured evidence — never
+  from raw payloads. Sessions below the minimum baseline size report
+  `insufficient_evidence`; model failures report `model_error`. Results are kept strictly
+  separate from Stage 4 findings and the Stage 5 posture score. All processing is local.
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

@@ -15,6 +15,7 @@ from engine.detection import evaluate_sessions
 from engine.detection.policy import Policy
 from engine.detection.posture import build_posture
 from engine.ingestion.errors import CaptureStorageError
+from engine.ml.anomaly import AnomalyEngine, AnomalyReport
 from engine.transport.packets import PacketSourceError, PcapPacketSource
 
 from app.registry import CaptureRegistry
@@ -38,8 +39,56 @@ class CaptureNotFoundError(Exception):
         self.capture_id = capture_id
 
 
+def _anomaly_report_to_payload(report: AnomalyReport) -> dict[str, Any]:
+    """Serialize the anomaly report into a JSON-safe document."""
+    return {
+        "capture_id": report.capture_id,
+        "analysis_version": report.analysis_version,
+        "feature_schema_version": report.feature_schema_version,
+        "model_id": report.model_id,
+        "model_version": report.model_version,
+        "status": report.status,
+        "training_session_count": report.training_session_count,
+        "anomalies": [
+            {
+                "anomaly_id": a.anomaly_id,
+                "session_id": a.session_id,
+                "protocol": a.protocol,
+                "status": a.status,
+                "score": a.score,
+                "band": a.band,
+                "model_id": a.model_id,
+                "model_version": a.model_version,
+                "feature_schema_version": a.feature_schema_version,
+                "top_deviations": [
+                    {
+                        "feature": deviation["feature"],
+                        "observed": deviation["observed"],
+                        "baseline": deviation["baseline"],
+                        "deviation": deviation["deviation"],
+                    }
+                    for deviation in a.top_deviations
+                ],
+                "baseline_summary": a.baseline_summary,
+                "evidence_refs": [
+                    {
+                        "source": ref.source,
+                        "packet_numbers": ref.packet_numbers,
+                        "detail": ref.detail,
+                    }
+                    for ref in a.evidence_refs
+                ],
+                "generated_at": a.generated_at.isoformat(),
+            }
+            for a in report.anomalies
+        ],
+        "summary": report.summary,
+        "generated_at": report.generated_at.isoformat(),
+    }
+
+
 class CaptureAnalysisService:
-    """Analyzes registered captures: sessions → TLS evidence → findings."""
+    """Analyzes registered captures: sessions → TLS evidence → findings → posture."""
 
     def __init__(
         self,
@@ -47,11 +96,13 @@ class CaptureAnalysisService:
         registry: CaptureRegistry,
         store: SessionStore,
         policy: Policy,
+        anomaly_engine: AnomalyEngine | None = None,
     ) -> None:
         self._storage = storage
         self._registry = registry
         self._store = store
         self._policy = policy
+        self._anomaly_engine = anomaly_engine or AnomalyEngine()
 
     def analyze(self, capture_id: str) -> tuple[str, int]:
         """Run analysis for one capture; returns (status, session_count).
@@ -89,6 +140,8 @@ class CaptureAnalysisService:
         self._store.replace_findings_for_capture(capture.id, findings)
         posture = build_posture(capture.id, result.sessions, findings, self._policy)
         self._store.replace_posture_snapshot(posture_to_payload(posture))
+        anomaly_report = self._anomaly_engine.analyze(result.sessions)
+        self._store.replace_anomaly_results(capture.id, _anomaly_report_to_payload(anomaly_report))
         self._store.record_completed(capture.id, len(result.sessions), result.coverage_warnings)
         logger.info(
             "analyzed %s: %d session(s), %d finding(s)",
@@ -118,3 +171,15 @@ class CaptureAnalysisService:
 
     def posture_snapshot(self, capture_id: str) -> dict[str, Any] | None:
         return self._store.get_posture_snapshot(capture_id)
+
+    def anomalies_for_capture(self, capture_id: str) -> list[dict[str, Any]]:
+        return self._store.list_anomaly_results(capture_id)
+
+    def anomaly_result(self, anomaly_id: str) -> dict[str, Any] | None:
+        return self._store.get_anomaly_result(anomaly_id)
+
+    def anomaly_summary(self, capture_id: str) -> dict[str, int] | None:
+        return self._store.get_anomaly_summary(capture_id)
+
+    def anomaly_for_session(self, session_id: str) -> dict[str, Any] | None:
+        return self._store.get_anomaly_for_session(session_id)

@@ -114,6 +114,36 @@ CREATE TABLE IF NOT EXISTS findings (
 );
 CREATE INDEX IF NOT EXISTS idx_findings_capture ON findings(capture_id);
 CREATE INDEX IF NOT EXISTS idx_findings_session ON findings(session_id);
+CREATE TABLE IF NOT EXISTS anomaly_models (
+    model_id TEXT PRIMARY KEY,
+    capture_id TEXT NOT NULL,
+    algorithm TEXT NOT NULL,
+    feature_schema_version TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    training_session_count INTEGER NOT NULL,
+    protocol TEXT,
+    trained_at TEXT NOT NULL,
+    parameters TEXT NOT NULL DEFAULT '{}',
+    preprocessing TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS anomaly_results (
+    anomaly_id TEXT PRIMARY KEY,
+    capture_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    protocol TEXT,
+    status TEXT NOT NULL,
+    score INTEGER,
+    band TEXT,
+    model_id TEXT,
+    model_version TEXT NOT NULL,
+    feature_schema_version TEXT NOT NULL,
+    top_deviations TEXT NOT NULL DEFAULT '[]',
+    baseline_summary TEXT NOT NULL DEFAULT '{}',
+    evidence_refs TEXT NOT NULL DEFAULT '[]',
+    generated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_anomalies_capture ON anomaly_results(capture_id);
+CREATE INDEX IF NOT EXISTS idx_anomalies_session ON anomaly_results(session_id);
 CREATE TABLE IF NOT EXISTS posture_snapshots (
     capture_id TEXT PRIMARY KEY,
     generated_at TEXT NOT NULL,
@@ -181,6 +211,16 @@ class SessionStore(Protocol):
     def list_findings_for_session(self, session_id: str) -> list[SecurityFinding]: ...
 
     def get_finding(self, finding_id: str) -> SecurityFinding | None: ...
+
+    def replace_anomaly_results(self, capture_id: str, report: dict[str, Any]) -> None: ...
+
+    def list_anomaly_results(self, capture_id: str) -> list[dict[str, Any]]: ...
+
+    def get_anomaly_result(self, anomaly_id: str) -> dict[str, Any] | None: ...
+
+    def get_anomaly_for_session(self, session_id: str) -> dict[str, Any] | None: ...
+
+    def get_anomaly_summary(self, capture_id: str) -> dict[str, int] | None: ...
 
     def replace_posture_snapshot(self, snapshot: dict[str, Any]) -> None: ...
 
@@ -395,6 +435,25 @@ def _finding_from_row(row: sqlite3.Row) -> SecurityFinding:
         details=json.loads(row["details"]),
         detected_at=_from_iso(row["detected_at"]) or datetime.now(UTC),
     )
+
+
+def _anomaly_from_row(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "anomaly_id": row["anomaly_id"],
+        "capture_id": row["capture_id"],
+        "session_id": row["session_id"],
+        "protocol": row["protocol"],
+        "status": row["status"],
+        "score": row["score"],
+        "band": row["band"],
+        "model_id": row["model_id"],
+        "model_version": row["model_version"],
+        "feature_schema_version": row["feature_schema_version"],
+        "top_deviations": json.loads(row["top_deviations"]),
+        "baseline_summary": json.loads(row["baseline_summary"]),
+        "evidence_refs": json.loads(row["evidence_refs"]),
+        "generated_at": row["generated_at"],
+    }
 
 
 class SQLiteSessionStore:
@@ -630,6 +689,99 @@ class SQLiteSessionStore:
     def get_finding(self, finding_id: str) -> SecurityFinding | None:
         rows = self._findings_query("SELECT * FROM findings WHERE id = ?", (finding_id,))
         return rows[0] if rows else None
+
+    def replace_anomaly_results(self, capture_id: str, report: dict[str, Any]) -> None:
+        """Atomically replace anomaly results + model metadata for one capture."""
+        try:
+            with self._session() as connection:
+                connection.execute(
+                    "DELETE FROM anomaly_results WHERE capture_id = ?", (capture_id,)
+                )
+                connection.execute("DELETE FROM anomaly_models WHERE capture_id = ?", (capture_id,))
+                if report.get("model_id") and report["status"] != "insufficient_baseline":
+                    model_meta = {
+                        "model_id": report["model_id"],
+                        "capture_id": capture_id,
+                        "algorithm": "IsolationForest",
+                        "feature_schema_version": report["feature_schema_version"],
+                        "model_version": report["model_version"],
+                        "training_session_count": report["training_session_count"],
+                        "protocol": None,
+                        "trained_at": report["generated_at"],
+                        "parameters": "{}",
+                        "preprocessing": "{}",
+                    }
+                    columns = ",".join(model_meta)
+                    placeholders = ",".join("?" for _ in model_meta)
+                    sql = (
+                        f"INSERT OR REPLACE INTO anomaly_models ({columns}) VALUES ({placeholders})"
+                    )
+                    connection.execute(sql, tuple(model_meta.values()))
+                for anomaly in report["anomalies"]:
+                    row = dict(anomaly)
+                    row["capture_id"] = capture_id
+                    row["top_deviations"] = json.dumps(anomaly["top_deviations"])
+                    row["baseline_summary"] = json.dumps(anomaly["baseline_summary"])
+                    row["evidence_refs"] = json.dumps(anomaly["evidence_refs"])
+                    columns = ",".join(row)
+                    placeholders = ",".join("?" for _ in row)
+                    sql = (
+                        f"INSERT OR REPLACE INTO anomaly_results ({columns}) "
+                        f"VALUES ({placeholders})"
+                    )
+                    connection.execute(sql, tuple(row.values()))
+                connection.execute(
+                    "UPDATE anomaly_models SET preprocessing = ? WHERE capture_id = ?",
+                    (json.dumps(report["summary"]), capture_id),
+                )
+        except (sqlite3.Error, KeyError) as error:
+            raise CaptureStorageError(f"cannot persist anomaly results: {error}") from error
+
+    def list_anomaly_results(self, capture_id: str) -> list[dict[str, Any]]:
+        try:
+            with self._session() as connection:
+                rows = connection.execute(
+                    "SELECT * FROM anomaly_results WHERE capture_id = ? ORDER BY session_id",
+                    (capture_id,),
+                ).fetchall()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load anomaly results: {error}") from error
+        return [_anomaly_from_row(row) for row in rows]
+
+    def get_anomaly_result(self, anomaly_id: str) -> dict[str, Any] | None:
+        try:
+            with self._session() as connection:
+                row = connection.execute(
+                    "SELECT * FROM anomaly_results WHERE anomaly_id = ?", (anomaly_id,)
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load anomaly result: {error}") from error
+        return _anomaly_from_row(row) if row else None
+
+    def get_anomaly_summary(self, capture_id: str) -> dict[str, int] | None:
+        try:
+            with self._session() as connection:
+                row = connection.execute(
+                    "SELECT preprocessing FROM anomaly_models WHERE capture_id = ?",
+                    (capture_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load anomaly summary: {error}") from error
+        if row is None:
+            return None
+        result: dict[str, int] = json.loads(row["preprocessing"])
+        return result
+
+    def get_anomaly_for_session(self, session_id: str) -> dict[str, Any] | None:
+        try:
+            with self._session() as connection:
+                row = connection.execute(
+                    "SELECT * FROM anomaly_results WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot load anomaly result: {error}") from error
+        return _anomaly_from_row(row) if row else None
 
     def _findings_query(self, query: str, params: tuple[object, ...]) -> list[SecurityFinding]:
         try:

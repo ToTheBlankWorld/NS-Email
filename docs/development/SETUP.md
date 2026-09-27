@@ -101,6 +101,18 @@ curl http://127.0.0.1:8000/api/captures/<capture_id>/hosts
 curl http://127.0.0.1:8000/api/captures/<capture_id>/hosts/<host_id>
 ```
 
+Behavioral anomaly results (Stage 6) are generated during each analysis run:
+
+```bash
+curl http://127.0.0.1:8000/api/captures/<capture_id>/anomalies
+curl http://127.0.0.1:8000/api/sessions/<session_id>/anomaly
+curl http://127.0.0.1:8000/api/captures/<capture_id>/anomaly-summary
+```
+
+Anomalies use an unsupervised IsolationForest trained on the capture's own sessions.
+Processing is local — no data is sent to external services. Sessions below the minimum
+baseline size report `insufficient_evidence`.
+
 The posture score is a SecureMailScope-defined analytical metric: base
 100 minus factor deductions (severity weight x confidence multiplier x
 prevalence multiplier, correlated within five posture factors). The full
