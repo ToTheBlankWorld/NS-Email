@@ -1,10 +1,10 @@
 import {
   FileArchive,
   FileText,
-  KeyRound,
   LayoutDashboard,
-  Settings,
+  Network,
   ShieldAlert,
+  ShieldQuestion,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -31,16 +31,11 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard, available: true },
       { label: "Captures", href: "/captures", icon: FileArchive, available: true },
-      { label: "Sessions", href: "/sessions", icon: Waypoints, available: false },
-      { label: "TLS & Certificates", href: "/certificates", icon: KeyRound, available: false },
-      { label: "Findings", href: "/findings", icon: ShieldAlert, available: false },
-      { label: "Reports", href: "/reports", icon: FileText, available: false },
-    ],
-  },
-  {
-    label: "System",
-    items: [
-      { label: "Settings", href: "/settings", icon: Settings, available: false },
+      { label: "Sessions", href: "/sessions", icon: Waypoints, available: true },
+      { label: "Findings", href: "/findings", icon: ShieldAlert, available: true },
+      { label: "Anomalies", href: "/anomalies", icon: ShieldQuestion, available: true },
+      { label: "Evidence Graph", href: "/graph", icon: Network, available: true },
+      { label: "Reports", href: "/reports", icon: FileText, available: true },
     ],
   },
 ];

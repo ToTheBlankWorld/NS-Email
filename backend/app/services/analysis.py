@@ -14,11 +14,13 @@ from engine.core.session import Session
 from engine.detection import evaluate_sessions
 from engine.detection.policy import Policy
 from engine.detection.posture import build_posture
+from engine.graph.builder import EvidenceGraphBuilder
 from engine.ingestion.errors import CaptureStorageError
 from engine.ml.anomaly import AnomalyEngine, AnomalyReport
 from engine.transport.packets import PacketSourceError, PcapPacketSource
 
 from app.registry import CaptureRegistry
+from app.services.graph_serializer import graph_to_rows
 from app.services.posture_serializer import posture_to_payload
 from app.storage import CaptureStorage
 from app.store import AnalysisRecord, SessionStore
@@ -141,7 +143,13 @@ class CaptureAnalysisService:
         posture = build_posture(capture.id, result.sessions, findings, self._policy)
         self._store.replace_posture_snapshot(posture_to_payload(posture))
         anomaly_report = self._anomaly_engine.analyze(result.sessions)
-        self._store.replace_anomaly_results(capture.id, _anomaly_report_to_payload(anomaly_report))
+        anomaly_payload = _anomaly_report_to_payload(anomaly_report)
+        self._store.replace_anomaly_results(capture.id, anomaly_payload)
+        graph = EvidenceGraphBuilder(capture.id).build(
+            result.sessions, findings, anomaly_payload["anomalies"], posture
+        )
+        graph_nodes, graph_edges = graph_to_rows(graph)
+        self._store.replace_graph(capture.id, graph_nodes, graph_edges)
         self._store.record_completed(capture.id, len(result.sessions), result.coverage_warnings)
         logger.info(
             "analyzed %s: %d session(s), %d finding(s)",

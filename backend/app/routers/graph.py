@@ -78,6 +78,10 @@ def get_session_context(session_id: str, request: Request) -> dict[str, Any]:
     anomaly = analysis.anomaly_for_session(session_id)
     all_sessions = analysis.sessions_for(session.capture_id)
     all_findings = analysis.findings_for_capture(session.capture_id)
+    posture_snapshot = analysis.posture_snapshot(session.capture_id) or {}
+    posture_factor_names = [
+        str(factor.get("factor", "")) for factor in posture_snapshot.get("factors", [])
+    ]
 
     from engine.graph.builder import build_investigation_context
 
@@ -85,9 +89,7 @@ def get_session_context(session_id: str, request: Request) -> dict[str, Any]:
         session,
         findings,
         [anomaly] if anomaly else [],
-        [f.factor for f in (analysis.posture_snapshot(session.capture_id) or {}).get("factors", [])]
-        if analysis.posture_snapshot(session.capture_id)
-        else [],
+        posture_factor_names,
         all_sessions,
         all_findings,
     )

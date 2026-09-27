@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
-from app.routers import ai, anomalies, captures, findings, graph, health, posture, sessions
+from app.routers import ai, anomalies, captures, findings, graph, health, posture, reports, sessions
 from app.services.analysis import CaptureAnalysisService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
@@ -87,6 +87,7 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
     app.state.analysis_service = analysis_service
     ai_provider = _resolve_ai_provider(settings)
     app.state.ai_service = _make_ai_service(ai_provider, analysis_service)
+    app.state.settings = settings
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -114,6 +115,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(anomalies.router)
     app.include_router(graph.router)
     app.include_router(ai.router)
+    app.include_router(reports.router)
     _configure_services(app, settings)
     return app
 

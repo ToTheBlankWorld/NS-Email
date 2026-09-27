@@ -15,6 +15,8 @@ import {
 import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
 import { AIPanel } from "@/components/ai/ai-panel";
+import { SessionGraphContext } from "@/components/sessions/session-graph-context";
+import { SessionSecuritySummary } from "@/components/sessions/session-security-summary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -442,6 +444,10 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
       {session.certificates && session.certificates.length > 0 ? (
         <CertificateChain certificates={session.certificates} />
       ) : null}
+
+      <SessionSecuritySummary sessionId={session.id} />
+
+      <SessionGraphContext captureId={session.capture_id} sessionId={session.id} />
 
       <AIPanel sessionId={session.id} />
 

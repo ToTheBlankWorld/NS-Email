@@ -663,3 +663,108 @@ export async function queryAI(
   if (!response.ok) throw await parseError(response);
   return (await response.json()) as AIQueryResult;
 }
+
+// ---------------------------------------------------------------------------
+// Evidence graph (Stage 7)
+// ---------------------------------------------------------------------------
+
+export type GraphNode = {
+  node_id: string;
+  capture_id: string;
+  node_type: string;
+  label: string;
+  source_id: string | null;
+  metadata: Record<string, unknown>;
+};
+
+export type GraphEdge = {
+  source_node_id: string;
+  target_node_id: string;
+  edge_type: string;
+  basis: string | null;
+};
+
+export type EvidenceGraphPayload = {
+  capture_id: string;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+};
+
+export async function getGraph(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<EvidenceGraphPayload> {
+  const response = await fetch(`${API_BASE_URL}/api/captures/${captureId}/graph`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as EvidenceGraphPayload;
+}
+
+export type SessionContext = {
+  capture_id: string;
+  session_id: string;
+  hosts: string[];
+  endpoints: string[];
+  protocol: string | null;
+  tls_version: string | null;
+  cipher_suite: string | null;
+  key_exchange: string | null;
+  certificate_ids: string[];
+  finding_ids: string[];
+  anomaly_id: string | null;
+  anomaly_score: number | null;
+  posture_factors: string[];
+  related_session_ids: string[];
+  related_certificate_ids: string[];
+  related_tls_config_ids: string[];
+  timeline_events: { type: string; timestamp: string; packet_numbers: string }[];
+  evidence_refs: { source: string; packet_numbers: number[]; detail: string | null }[];
+};
+
+export async function getSessionContext(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<SessionContext> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/context`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as SessionContext;
+}
+
+// ---------------------------------------------------------------------------
+// Forensic reports (Stage 9)
+// ---------------------------------------------------------------------------
+
+export function reportUrl(captureId: string, format: "json" | "html" | "pdf"): string {
+  return `${API_BASE_URL}/api/captures/${captureId}/report.${format}`;
+}
+
+export type AIHistoryEntry = {
+  response_id: string;
+  capture_id: string;
+  session_id: string | null;
+  query: string;
+  answer: string;
+  provider: string;
+  model: string;
+  prompt_version: string;
+  context_version: string;
+  validation_status: string;
+  generated_at: string | null;
+};
+
+export async function listAIHistory(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<AIHistoryEntry[]> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/history/${captureId}`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as AIHistoryEntry[];
+}

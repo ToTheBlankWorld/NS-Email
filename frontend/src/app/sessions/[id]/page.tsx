@@ -19,8 +19,8 @@ export default async function SessionDetailPage({
     <div className="mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-8">
       <header className="mb-6">
         <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Link href="/captures" className="hover:text-foreground">
-            Captures
+          <Link href="/sessions" className="hover:text-foreground">
+            Sessions
           </Link>
           <ChevronRight className="size-3" aria-hidden />
           <span>Session</span>

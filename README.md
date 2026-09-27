@@ -10,11 +10,12 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 8 — evidence-grounded AI forensic analyst.**
-> The platform now runs an IsolationForest anomaly detector over structured session
-> features to identify TLS sessions whose behavior differs from the capture-local
-> baseline. Deterministic findings and the posture score are unchanged; the anomaly
-> layer is an additional intelligence lens. See [Development stages](#development-stages).
+> **Status: Stage 9 — analyst workstation and forensic reporting.**
+> The platform now ships a complete analyst workstation: capture forensic
+> dashboards, findings/anomaly workspaces, an interactive evidence graph,
+> a session investigation view with the AI analyst, and deterministic
+> JSON / HTML / PDF forensic reports. All Stage 1-8 semantics are unchanged.
+> See [Development stages](#development-stages).
 
 ---
 
@@ -120,8 +121,9 @@ Dependencies are added only when a stage actually needs them.
 | 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | done |
 | 6     | TLS behavioral anomaly detection (IsolationForest over session features) | done |
 | 7     | Forensic evidence graph and investigation intelligence | done |
-| 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | **current** |
-| 9+    | Reports, dashboard depth | planned |
+| 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | done |
+| 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | **current** |
+| 10+   | Hardening, performance depth | planned |
 
 Each stage lands as its own reviewed, tested commit.
 
@@ -173,6 +175,15 @@ Each stage lands as its own reviewed, tested commit.
   Provider abstraction supports OpenAI-compatible APIs and local models (Ollama);
   a deterministic mock provider is used when no external provider is configured.
   Prompt injection defense, citation validation, and credential redaction are built in.
+- **Analyst workstation and reporting (Stage 9)** — cohesive SOC-style workspace:
+  capture forensic dashboards, findings and anomaly workspaces with
+  filtering/sorting/deep links, an interactive evidence graph (React Flow,
+  deterministic layered layout, type filters, inspection panel), a session
+  investigation view (security summary, TLS, certificates, timeline, graph
+  context, AI panel), a report center, and deterministic JSON / HTML / PDF
+  forensic reports generated on demand from persisted evidence. Reports include
+  only validated AI observations, clearly labeled, with citation and uncertainty
+  preservation; every dynamic report value is escaped or sanitized.
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

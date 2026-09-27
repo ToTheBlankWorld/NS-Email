@@ -27,6 +27,7 @@ from engine.graph.model import (
     finding_node_id,
     handshake_node_id,
     host_node_id,
+    posture_node_id,
     protocol_node_id,
     session_graph_id,
     tls_config_fingerprint,
@@ -257,11 +258,11 @@ class EvidenceGraphBuilder:
                     self._add_node(
                         cfg_nid,
                         NodeType.TLS_CONFIGURATION,
-                        f"TLS {config_versions[fp]}",
-                        fp,
+                        f"TLS {config_versions[config_fp]}",
+                        config_fp,
                         {
-                            "tls_version": config_versions[fp],
-                            "cipher_suite": config_ciphers[fp],
+                            "tls_version": config_versions[config_fp],
+                            "cipher_suite": config_ciphers[config_fp],
                         },
                     )
                     self._add_edge(
@@ -347,7 +348,7 @@ class EvidenceGraphBuilder:
             for factor in posture.factors:
                 if factor.score_contribution <= 0:
                     continue
-                pf_nid = tls_config_node_id(factor.factor)
+                pf_nid = posture_node_id(factor.factor, self._capture_id)
                 self._add_node(
                     pf_nid,
                     NodeType.POSTURE_FACTOR,

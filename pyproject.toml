@@ -31,6 +31,7 @@ classifiers = [
 dependencies = [
   "cryptography>=42",
   "fastapi>=0.115",
+  "fpdf2>=2.8",
   "pydantic>=2.9",
   "python-multipart>=0.0.20",
   "uvicorn[standard]>=0.32",

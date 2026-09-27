@@ -15,6 +15,7 @@ import {
 import { AnomaliesSection } from "@/components/anomalies/anomalies-section";
 import { FindingsSection } from "@/components/findings/findings-section";
 import { PostureSection } from "@/components/posture/posture-section";
+import { CaptureSecurityOverview } from "@/components/captures/capture-overview";
 import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -396,6 +397,10 @@ export function CaptureDetail({ captureId }: { captureId: string }) {
       </Card>
 
       <AnalysisCard capture={capture} sessions={sessions} onAnalyzed={onAnalyzed} />
+
+      {capture.analysis?.status === "completed" ? (
+        <CaptureSecurityOverview captureId={capture.id} sessions={sessions} />
+      ) : null}
 
       <SessionsTable captureId={capture.id} />
 

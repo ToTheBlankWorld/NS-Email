@@ -174,7 +174,7 @@ analysis with the real session count and protocol breakdown, a sessions table, a
 session detail view with a per-event timeline and TLS-boundary section. No fake
 statistics, findings, or AI output.
 
-The first eight stages of the pipeline are implemented; the rest is future work.
+The first nine stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG
@@ -192,9 +192,21 @@ SecurityFinding[]
       ↓  ML anomaly analysis · risk prioritization
       ↓  evidence graph (relationships between sessions, handshakes, findings)
       ↓  AI-assisted explanation (human-readable, evidence-cited)
-      ↓  reports: JSON / HTML / PDF
-Dashboard
+      ↓  reports: JSON / HTML / PDF                                       ← Stage 9 (implemented)
+Analyst workstation: dashboard · workspaces · evidence graph · report center
 ```
+
+### Stage 9: analyst workstation and reporting
+
+The frontend is a cohesive workstation: dashboard, captures, sessions,
+findings, anomalies, evidence graph, and reports. The evidence graph
+frontend renders the Stage 7 graph with React Flow using a deterministic
+layered layout; the graph is downloaded once per session and reused.
+Reports are assembled by `backend/app/services/report_builder.py` from
+persisted evidence only (schema version 1.0, byte-identical per evidence
+state) and rendered by three renderers into JSON, standalone HTML, and
+structured PDF (fpdf2). AI observations appear only if validated and are
+always labeled as interpretive assistance.
 
 ## Security boundaries
 

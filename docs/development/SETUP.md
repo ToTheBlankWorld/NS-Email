@@ -214,3 +214,25 @@ Without a provider configured, the AI status reports `not_configured` and querie
 return a structured error. No data is sent to external services unless explicitly
 configured. All AI responses are validated against the supplied evidence before
 being returned.
+
+
+## Forensic reports (Stage 9)
+
+Reports are generated on demand from persisted evidence — deterministic per
+evidence state, never stored as blobs. New dependency: `fpdf2` (pure-Python
+PDF generation).
+
+```bash
+# JSON report (machine-readable, schema 1.0)
+curl -OJ http://127.0.0.1:8000/api/captures/<capture_id>/report.json
+
+# HTML report (standalone, printable, no external assets)
+curl -OJ http://127.0.0.1:8000/api/captures/<capture_id>/report.html
+
+# PDF report (structured, print-ready)
+curl -OJ http://127.0.0.1:8000/api/captures/<capture_id>/report.pdf
+```
+
+The frontend provides a Report Center at `/reports` for the same downloads,
+plus the analyst workspaces: `/findings`, `/anomalies`, `/graph`, and
+`/sessions`. The evidence graph frontend uses `@xyflow/react` (React Flow).
