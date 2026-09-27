@@ -4,8 +4,8 @@ import re
 
 from fastapi import APIRouter, Request
 
-from app.api_models import SessionResponse
-from app.errors import ERROR_SESSION_NOT_FOUND, ApiError
+from app.api_models import FindingResponse, SessionResponse
+from app.errors import ERROR_FINDING_NOT_FOUND, ERROR_SESSION_NOT_FOUND, ApiError
 from app.services.analysis import CaptureAnalysisService
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
@@ -29,3 +29,19 @@ def get_session(session_id: str, request: Request) -> SessionResponse:
     if session is None:
         raise ApiError(ERROR_SESSION_NOT_FOUND, "no session exists with this id", 404)
     return SessionResponse.from_session(session)
+
+
+@router.get(
+    "/{session_id}/findings",
+    response_model=list[FindingResponse],
+    summary="List security findings for a session",
+)
+def list_session_findings(session_id: str, request: Request) -> list[FindingResponse]:
+    if not _SESSION_ID_PATTERN.fullmatch(session_id):
+        raise ApiError(ERROR_FINDING_NOT_FOUND, "no session exists with this id", 404)
+    if _analysis(request).session(session_id) is None:
+        raise ApiError(ERROR_SESSION_NOT_FOUND, "no session exists with this id", 404)
+    return [
+        FindingResponse.from_finding(finding)
+        for finding in _analysis(request).findings_for_session(session_id)
+    ]

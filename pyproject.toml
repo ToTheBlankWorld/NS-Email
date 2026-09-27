@@ -56,7 +56,7 @@ app = "backend/app"
 engine = "engine"
 
 [tool.setuptools.package-data]
-engine = ["py.typed"]
+engine = ["py.typed", "detection/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests", "engine/tests"]

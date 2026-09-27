@@ -8,7 +8,14 @@ from engine.core.base import ForensicBase, new_evidence_id, utc_now
 from engine.core.capture import MAX_CAPTURE_SIZE_BYTES, Capture, CaptureFormat, CaptureStatus
 from engine.core.certificate import CertificateEvidence
 from engine.core.events import EventDirection, EventType, SessionEvent
-from engine.core.findings import FindingCategory, FindingSeverity, SecurityFinding
+from engine.core.findings import (
+    EvidenceRef,
+    FindingCategory,
+    FindingSeverity,
+    Remediation,
+    SecurityFinding,
+    StandardReference,
+)
 from engine.core.session import (
     Confidence,
     EmailProtocol,
@@ -28,14 +35,17 @@ __all__ = [
     "EmailProtocol",
     "EventDirection",
     "EventType",
+    "EvidenceRef",
     "FindingCategory",
     "FindingSeverity",
     "ForensicBase",
     "KeyExchange",
     "Orientation",
+    "Remediation",
     "SecurityFinding",
     "Session",
     "SessionEvent",
+    "StandardReference",
     "StarttlsObservation",
     "TLSHandshake",
     "TLSVersion",

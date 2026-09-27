@@ -266,6 +266,89 @@ export async function getCapture(
 }
 
 // ---------------------------------------------------------------------------
+// Findings
+// ---------------------------------------------------------------------------
+
+export type FindingSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+export type FindingEvidenceRef = {
+  source: string;
+  packet_numbers: number[];
+  detail: string | null;
+};
+
+export type FindingRemediation = {
+  action: string;
+  target: string | null;
+  rationale: string | null;
+  priority: string | null;
+};
+
+export type FindingStandardReference = {
+  name: string;
+  url: string | null;
+};
+
+export type FindingRecord = {
+  id: string;
+  capture_id: string | null;
+  session_id: string | null;
+  protocol: string | null;
+  title: string;
+  description: string;
+  severity: FindingSeverity;
+  confidence: string;
+  category: string;
+  rule_id: string;
+  evidence_refs: FindingEvidenceRef[];
+  observed_value: string | null;
+  expected_value: string | null;
+  remediation: FindingRemediation | null;
+  standard_reference: FindingStandardReference | null;
+  first_packet: number | null;
+  last_packet: number | null;
+};
+
+/** List security findings for a capture. */
+export async function listCaptureFindings(
+  captureId: string,
+  signal?: AbortSignal,
+): Promise<FindingRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/captures/${encodeURIComponent(captureId)}/findings`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as FindingRecord[];
+}
+
+/** List security findings for one session. */
+export async function listSessionFindings(
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<FindingRecord[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/sessions/${encodeURIComponent(sessionId)}/findings`,
+    { signal, cache: "no-store" },
+  );
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as FindingRecord[];
+}
+
+/** Fetch one finding with full evidence references. */
+export async function getFinding(
+  findingId: string,
+  signal?: AbortSignal,
+): Promise<FindingRecord> {
+  const response = await fetch(`${API_BASE_URL}/api/findings/${encodeURIComponent(findingId)}`, {
+    signal,
+    cache: "no-store",
+  });
+  if (!response.ok) throw await parseError(response);
+  return (await response.json()) as FindingRecord;
+}
+
+// ---------------------------------------------------------------------------
 // Analysis & sessions
 // ---------------------------------------------------------------------------
 

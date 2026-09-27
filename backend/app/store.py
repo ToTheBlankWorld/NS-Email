@@ -17,6 +17,14 @@ from typing import Protocol
 
 from engine.core.certificate import CertificateEvidence
 from engine.core.events import EventDirection, EventType, SessionEvent
+from engine.core.findings import (
+    EvidenceRef,
+    FindingCategory,
+    FindingSeverity,
+    Remediation,
+    SecurityFinding,
+    StandardReference,
+)
 from engine.core.session import (
     Confidence,
     EmailProtocol,
@@ -83,6 +91,29 @@ CREATE TABLE IF NOT EXISTS session_certificates (
     fingerprint_sha256 TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_certificates_session ON session_certificates(session_id);
+CREATE TABLE IF NOT EXISTS findings (
+    id TEXT PRIMARY KEY,
+    capture_id TEXT NOT NULL,
+    session_id TEXT,
+    protocol TEXT,
+    rule_id TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    confidence TEXT NOT NULL,
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    observed_value TEXT,
+    expected_value TEXT,
+    remediation TEXT,
+    standard_reference TEXT,
+    evidence_refs TEXT NOT NULL DEFAULT '[]',
+    first_packet INTEGER,
+    last_packet INTEGER,
+    details TEXT NOT NULL DEFAULT '{}',
+    detected_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_findings_capture ON findings(capture_id);
+CREATE INDEX IF NOT EXISTS idx_findings_session ON findings(session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_capture ON sessions(capture_id);
 CREATE TABLE IF NOT EXISTS session_events (
     session_id TEXT NOT NULL,
@@ -129,6 +160,16 @@ class SessionStore(Protocol):
     ) -> None: ...
 
     def record_failed(self, capture_id: str, code: str, message: str) -> None: ...
+
+    def replace_findings_for_capture(
+        self, capture_id: str, findings: list[SecurityFinding]
+    ) -> None: ...
+
+    def list_findings_for_capture(self, capture_id: str) -> list[SecurityFinding]: ...
+
+    def list_findings_for_session(self, session_id: str) -> list[SecurityFinding]: ...
+
+    def get_finding(self, finding_id: str) -> SecurityFinding | None: ...
 
 
 def _iso(value: datetime) -> str:
@@ -282,6 +323,62 @@ def _certificate_from_row(row: sqlite3.Row) -> CertificateEvidence:
         subject_alternative_names=json.loads(row["subject_alternative_names"]),
         fingerprint_sha256=row["fingerprint_sha256"],
         position_in_chain=row["position_in_chain"],
+    )
+
+
+def _finding_to_row(finding: SecurityFinding) -> tuple[object, ...]:
+    return (
+        finding.id,
+        finding.capture_id,
+        finding.session_id,
+        finding.protocol,
+        finding.rule_id,
+        finding.severity.value,
+        finding.confidence.value,
+        finding.category.value,
+        finding.title,
+        finding.description,
+        finding.observed_value,
+        finding.expected_value,
+        finding.remediation.model_dump_json() if finding.remediation else None,
+        finding.standard_reference.model_dump_json() if finding.standard_reference else None,
+        json.dumps([ref.model_dump() for ref in finding.evidence_refs]),
+        finding.first_packet,
+        finding.last_packet,
+        json.dumps(finding.details),
+        _iso(finding.detected_at),
+    )
+
+
+def _finding_from_row(row: sqlite3.Row) -> SecurityFinding:
+    remediation = (
+        Remediation.model_validate_json(row["remediation"]) if row["remediation"] else None
+    )
+    standard_reference = (
+        StandardReference.model_validate_json(row["standard_reference"])
+        if row["standard_reference"]
+        else None
+    )
+    return SecurityFinding(
+        id=row["id"],
+        capture_id=row["capture_id"],
+        session_id=row["session_id"],
+        protocol=row["protocol"],
+        title=row["title"],
+        description=row["description"],
+        severity=FindingSeverity(row["severity"]),
+        confidence=Confidence(row["confidence"]),
+        category=FindingCategory(row["category"]),
+        rule_id=row["rule_id"],
+        evidence_refs=[EvidenceRef.model_validate(ref) for ref in json.loads(row["evidence_refs"])],
+        observed_value=row["observed_value"],
+        expected_value=row["expected_value"],
+        remediation=remediation,
+        standard_reference=standard_reference,
+        first_packet=row["first_packet"],
+        last_packet=row["last_packet"],
+        details=json.loads(row["details"]),
+        detected_at=_from_iso(row["detected_at"]) or datetime.now(UTC),
     )
 
 
@@ -482,3 +579,47 @@ class SQLiteSessionStore:
                 )
         except sqlite3.Error as error:
             raise CaptureStorageError(f"cannot record analysis failure: {error}") from error
+
+    def replace_findings_for_capture(
+        self, capture_id: str, findings: list[SecurityFinding]
+    ) -> None:
+        """Atomically replace all findings for one capture."""
+        try:
+            with self._session() as connection:
+                connection.execute("DELETE FROM findings WHERE capture_id = ?", (capture_id,))
+                for finding in findings:
+                    connection.execute(
+                        "INSERT INTO findings "
+                        "(id, capture_id, session_id, protocol, rule_id, severity, "
+                        "confidence, category, title, description, observed_value, "
+                        "expected_value, remediation, standard_reference, evidence_refs, "
+                        "first_packet, last_packet, details, detected_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        _finding_to_row(finding),
+                    )
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot persist findings: {error}") from error
+
+    def list_findings_for_capture(self, capture_id: str) -> list[SecurityFinding]:
+        return self._findings_query(
+            "SELECT * FROM findings WHERE capture_id = ? ORDER BY detected_at ASC, id ASC",
+            (capture_id,),
+        )
+
+    def list_findings_for_session(self, session_id: str) -> list[SecurityFinding]:
+        return self._findings_query(
+            "SELECT * FROM findings WHERE session_id = ? ORDER BY detected_at ASC, id ASC",
+            (session_id,),
+        )
+
+    def get_finding(self, finding_id: str) -> SecurityFinding | None:
+        rows = self._findings_query("SELECT * FROM findings WHERE id = ?", (finding_id,))
+        return rows[0] if rows else None
+
+    def _findings_query(self, query: str, params: tuple[object, ...]) -> list[SecurityFinding]:
+        try:
+            with self._session() as connection:
+                rows = connection.execute(query, params).fetchall()
+        except sqlite3.Error as error:
+            raise CaptureStorageError(f"cannot query findings: {error}") from error
+        return [_finding_from_row(row) for row in rows]

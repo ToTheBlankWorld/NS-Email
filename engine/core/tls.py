@@ -100,4 +100,7 @@ class TLSHandshake(ForensicBase):
     handshake_complete: bool | None = None
     completeness_reason: str | None = None
     certificate_ids: list[str] = Field(default_factory=list)
+    client_hello_packets: list[int] = Field(default_factory=list)
+    server_hello_packets: list[int] = Field(default_factory=list)
+    certificate_packets: list[int] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

@@ -10,6 +10,7 @@ from app.api_models import (
     AnalysisInfo,
     AnalysisResultResponse,
     CaptureResponse,
+    FindingResponse,
     SessionResponse,
 )
 from app.errors import (
@@ -128,4 +129,19 @@ def list_capture_sessions(capture_id: str, request: Request) -> list[SessionResp
     return [
         SessionResponse.from_session(session, include_detail=False)
         for session in _analysis(request).sessions_for(capture_id)
+    ]
+
+
+@router.get(
+    "/{capture_id}/findings",
+    response_model=list[FindingResponse],
+    summary="List security findings for a capture",
+)
+def list_capture_findings(capture_id: str, request: Request) -> list[FindingResponse]:
+    _require_capture_id(capture_id)
+    if _ingestion(request).get_capture(capture_id) is None:
+        raise ApiError(ERROR_CAPTURE_NOT_FOUND, "no capture exists with this id", 404)
+    return [
+        FindingResponse.from_finding(finding)
+        for finding in _analysis(request).findings_for_capture(capture_id)
     ]

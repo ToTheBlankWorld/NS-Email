@@ -4,6 +4,8 @@ import logging
 import shutil
 from pathlib import Path
 
+from engine.detection import load_builtin_policy, load_policy_from_file
+from engine.detection.policy import Policy
 from engine.ingestion.inspector import CaptureInspector, TsharkCaptureInspector
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, load_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
-from app.routers import captures, health, sessions
+from app.routers import captures, findings, health, sessions
 from app.services.analysis import CaptureAnalysisService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
@@ -35,13 +37,23 @@ def _resolve_inspector(settings: Settings) -> CaptureInspector | None:
     return TsharkCaptureInspector(candidate, timeout_seconds=settings.inspector_timeout_seconds)
 
 
+def _load_policy(settings: Settings) -> "Policy":
+    if settings.policy_file:
+        policy = load_policy_from_file(Path(settings.policy_file))
+        logger.info("loaded custom policy %s v%s", policy.id, policy.version)
+        return policy
+    return load_builtin_policy()
+
+
 def _configure_services(app: FastAPI, settings: Settings) -> None:
     storage = CaptureStorage(settings.capture_storage_dir)
     registry = SQLiteCaptureRegistry(storage.registry_path())
     store = SQLiteSessionStore(storage.registry_path())
+    policy = _load_policy(settings)
     app.state.capture_storage = storage
     app.state.capture_registry = registry
     app.state.session_store = store
+    app.state.policy = policy
     app.state.ingestion_service = CaptureIngestionService(
         storage=storage,
         registry=registry,
@@ -52,6 +64,7 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
         storage=storage,
         registry=registry,
         store=store,
+        policy=policy,
     )
 
 
@@ -75,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(captures.router)
     app.include_router(sessions.router)
+    app.include_router(findings.router)
     _configure_services(app, settings)
     return app
 

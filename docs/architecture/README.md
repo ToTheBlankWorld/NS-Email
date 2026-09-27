@@ -69,6 +69,7 @@ Stage 1 added `engine/ingestion` (evidence acquisition); Stage 2 adds
 | `engine.transport`     | Packet source (pure-Python pcap/pcapng), flow grouping, stream reassembly, orientation |
 | `engine.protocols`     | SMTP/IMAP/POP3 detection with evidence, session reconstruction, credential redaction |
 | `engine.crypto`        | TLS record/handshake parsing, hello extensions, X.509 chain extraction (Stage 3) |
+| `engine.detection`     | Versioned policy (securemailscope-baseline v1.0), 15 deterministic rules, findings evaluator (Stage 4) |
 | `engine.analysis`      | Pipeline orchestration: packets → flows → sessions |
 
 Cross-cutting guarantees enforced by `engine/core/base.py`:
@@ -147,7 +148,9 @@ Session[] with event timelines (every event cites its packet numbers)
 TLSHandshake (version · cipher suites · key exchange · extensions)
   ↓  X.509 chain extraction (cryptography-backed)
 CertificateEvidence[] (chain position, fingerprints)
-  ↓  SQLiteSessionStore (sessions · session_events · certificates · analysis tables)
+  ↓  policy evaluation (versioned baseline, 15 deterministic rules)  ← Stage 4 (implemented)
+SecurityFinding[] (severity · confidence · evidence refs · remediation)
+  ↓  SQLiteSessionStore (sessions · events · certificates · findings · analysis)
 ```
 
 Security properties of this stage:
@@ -168,7 +171,7 @@ analysis with the real session count and protocol breakdown, a sessions table, a
 session detail view with a per-event timeline and TLS-boundary section. No fake
 statistics, findings, or AI output.
 
-The first three stages of the pipeline are implemented; the rest is future work.
+The first four stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG
@@ -179,6 +182,8 @@ Capture
 Session[] with timelines + evidence references
       ↓  TLS record/handshake parsing → X.509 chain extraction          ← Stage 3 (implemented)
 TLSHandshake[] · CertificateEvidence[]
+      ↓  policy evaluation: 15 deterministic rules                      ← Stage 4 (implemented)
+SecurityFinding[] with evidence refs and remediation
       ↓  cryptographic analysis · rule-based detection
 SecurityFinding[]
       ↓  ML anomaly analysis · risk prioritization
@@ -226,6 +231,7 @@ NS-Email/
 │   └── tests/          API, storage, registry, and security tests
 ├── engine/
 │   ├── core/           typed evidence models (Stage 0)
+│   ├── detection/      policy engine: rules, registry, evaluator (Stage 4)
 │   ├── crypto/         TLS record/handshake parsing, X.509 extraction (Stage 3)
 │   ├── ingestion/      capture validation, hashing, storage ids, inspection (Stage 1)
 │   ├── transport/      packet source, flows, reassembly (Stage 2)

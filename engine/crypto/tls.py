@@ -90,12 +90,18 @@ def parse_tls_evidence(
 
     client_hello: ClientHello | None = None
     server_hello: ServerHello | None = None
+    client_hello_packets: list[int] = []
+    server_hello_packets: list[int] = []
+    certificate_packets: list[int] = []
     if client_result is not None:
         warnings.extend(f"client stream: {warning}" for warning in client_result.warnings)
         for message in client_result.handshake_messages:
             if message.message_type == HANDSHAKE_CLIENT_HELLO and client_hello is None:
                 try:
                     client_hello = parse_client_hello(message.body)
+                    client_hello_packets = client_slice.packets_covering(
+                        message.offset, message.offset + 4 + len(message.body)
+                    )
                 except HelloParseError as error:
                     warnings.append(f"ClientHello could not be parsed: {error}")
     if server_result is not None:
@@ -104,6 +110,9 @@ def parse_tls_evidence(
             if message.message_type == HANDSHAKE_SERVER_HELLO and server_hello is None:
                 try:
                     server_hello = parse_server_hello(message.body)
+                    server_hello_packets = server_slice.packets_covering(
+                        message.offset, message.offset + 4 + len(message.body)
+                    )
                 except HelloParseError as error:
                     warnings.append(f"ServerHello could not be parsed: {error}")
 
@@ -146,6 +155,10 @@ def parse_tls_evidence(
             None,
         )
         if certificate_message is not None:
+            certificate_packets = server_slice.packets_covering(
+                certificate_message.offset,
+                certificate_message.offset + 4 + len(certificate_message.body),
+            )
             chain, chain_warnings = parse_certificate_chain(certificate_message, session_id)
             certificates.extend(chain)
             warnings.extend(chain_warnings)
@@ -191,6 +204,9 @@ def parse_tls_evidence(
         handshake_complete=handshake_complete,
         completeness_reason=completeness_reason,
         certificate_ids=[certificate.id for certificate in certificates],
+        client_hello_packets=client_hello_packets,
+        server_hello_packets=server_hello_packets,
+        certificate_packets=certificate_packets,
         warnings=warnings,
     )
     return TlsEvidenceResult(

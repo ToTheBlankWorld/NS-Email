@@ -10,11 +10,12 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 3 — TLS handshake & certificate evidence.**
-> The platform ingests evidence, reconstructs TCP sessions and email conversations, and now
-> parses the TLS handshake itself: negotiated version, cipher suites, key exchange, hello
-> extensions, and the visible X.509 chain. Cryptographic scoring, ML, and AI are still ahead.
-> See [Development stages](#development-stages).
+> **Status: Stage 4 — cryptographic security findings & policy engine.**
+> The platform now runs a deterministic, versioned policy engine over the reconstructed
+> evidence: deprecated TLS versions, unacceptable cipher suites, non-forward-secret key
+> exchange, certificate validity/key/signature/identity findings, STARTTLS gaps, and
+> plaintext authentication — every finding rule-backed, evidence-cited, and remediation-
+> tagged. No ML, no AI, no unexplained scores. See [Development stages](#development-stages).
 
 ---
 
@@ -115,8 +116,9 @@ Dependencies are added only when a stage actually needs them.
 | 0     | Repository foundation, backend `/health`, evidence models, frontend shell | done |
 | 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | done |
 | 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | done |
-| 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | **current** |
-| 4+    | Cryptographic analysis, rule-based findings | planned |
+| 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | done |
+| 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | **current** |
+| 5+    | Risk prioritization, ML anomaly analysis, evidence graph | planned |
 | 4+    | Cryptographic analysis, rule-based findings                  | planned    |
 | 5+    | Risk prioritization, ML anomaly analysis, evidence graph     | planned    |
 | 6+    | AI-assisted explanation, reports (JSON / HTML / PDF), dashboard depth | planned |
@@ -143,6 +145,16 @@ Each stage lands as its own reviewed, tested commit.
   visible X.509 chain (`cryptography`-backed, chain position, fingerprints). TLS 1.3
   encrypts certificates from the ServerHello onward — the evidence records that honestly
   instead of pretending otherwise.
+- **Policy engine (Stage 4)** — 15 deterministic rules over the structured evidence:
+  deprecated TLS versions, unacceptable cipher-suite classes, prohibited key exchange and
+  missing forward secrecy, certificate validity (measured against the capture time), weak
+  keys, MD5/SHA-1 signatures, hostname/SAN mismatch, chain observations, STARTTLS gaps,
+  plaintext authentication, and incomplete handshakes. Each finding carries a deterministic
+  id, structured evidence references with packet numbers, confidence separate from
+  severity, remediation guidance, and documented standard references (e.g. RFC 8996,
+  RFC 7525). Findings are served via
+  `GET /api/captures/{id}/findings`, `GET /api/sessions/{id}/findings`, and
+  `GET /api/findings/{id}`.
 - **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
   error model, explicit CORS allow-list, pytest coverage.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis

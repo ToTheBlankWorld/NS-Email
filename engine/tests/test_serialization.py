@@ -11,7 +11,12 @@ from typing import Any
 import pytest
 from engine.core.capture import Capture, CaptureFormat, CaptureStatus
 from engine.core.certificate import CertificateEvidence
-from engine.core.findings import FindingCategory, FindingSeverity, SecurityFinding
+from engine.core.findings import (
+    EvidenceRef,
+    FindingCategory,
+    FindingSeverity,
+    SecurityFinding,
+)
 from engine.core.session import Confidence, EmailProtocol, Orientation, Session
 from engine.core.tls import KeyExchange, TLSHandshake, TLSVersion
 from pydantic import ValidationError
@@ -82,9 +87,15 @@ def sample_evidence() -> dict[str, Any]:
         title="Server certificate is self-signed",
         description="The observed certificate was issued by itself, not a known authority.",
         severity=FindingSeverity.MEDIUM,
+        confidence=Confidence.HIGH,
         category=FindingCategory.CERTIFICATE,
         rule_id="certificate.self-signed",
-        evidence_refs=[handshake.id, certificate.id],
+        evidence_refs=[
+            EvidenceRef(source="ServerHello", packet_numbers=[9]),
+            EvidenceRef(source="Certificate(0)", packet_numbers=[10]),
+        ],
+        observed_value="self-signed certificate",
+        expected_value="certificate issued by a known authority",
         details={"subject": certificate.subject},
         detected_at=T2,
     )

@@ -17,6 +17,7 @@ CORS_ORIGINS_ENV_VAR = "NS_EMAIL_CORS_ORIGINS"
 CAPTURE_STORAGE_ENV_VAR = "NS_EMAIL_CAPTURE_STORAGE"
 MAX_CAPTURE_BYTES_ENV_VAR = "NS_EMAIL_MAX_CAPTURE_BYTES"
 TSHARK_PATH_ENV_VAR = "NS_EMAIL_TSHARK_PATH"
+POLICY_FILE_ENV_VAR = "NS_EMAIL_POLICY_FILE"
 
 DEFAULT_CORS_ORIGINS: tuple[str, ...] = ("http://localhost:3000",)
 DEFAULT_CAPTURE_STORAGE_DIR = Path("data/captures")
@@ -33,6 +34,7 @@ class Settings:
     max_capture_bytes: int = DEFAULT_MAX_CAPTURE_BYTES
     tshark_path: str | None = None
     inspector_timeout_seconds: float = DEFAULT_INSPECTOR_TIMEOUT_SECONDS
+    policy_file: str | None = None
 
 
 def _app_version() -> str:
@@ -71,4 +73,5 @@ def load_settings() -> Settings:
         capture_storage_dir=Path(storage_raw) if storage_raw else DEFAULT_CAPTURE_STORAGE_DIR,
         max_capture_bytes=_max_capture_bytes(),
         tshark_path=tshark_raw or None,
+        policy_file=os.environ.get(POLICY_FILE_ENV_VAR) or None,
     )

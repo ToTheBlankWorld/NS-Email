@@ -8,7 +8,10 @@ status — a failed analysis is a result, not a crash.
 import logging
 
 from engine.analysis import analyze_capture_packets
+from engine.core.findings import SecurityFinding
 from engine.core.session import Session
+from engine.detection import evaluate_sessions
+from engine.detection.policy import Policy
 from engine.ingestion.errors import CaptureStorageError
 from engine.transport.packets import PacketSourceError, PcapPacketSource
 
@@ -33,17 +36,19 @@ class CaptureNotFoundError(Exception):
 
 
 class CaptureAnalysisService:
-    """Analyzes registered captures and stores reconstructed sessions."""
+    """Analyzes registered captures: sessions → TLS evidence → findings."""
 
     def __init__(
         self,
         storage: CaptureStorage,
         registry: CaptureRegistry,
         store: SessionStore,
+        policy: Policy,
     ) -> None:
         self._storage = storage
         self._registry = registry
         self._store = store
+        self._policy = policy
 
     def analyze(self, capture_id: str) -> tuple[str, int]:
         """Run analysis for one capture; returns (status, session_count).
@@ -77,8 +82,15 @@ class CaptureAnalysisService:
             return ("failed", 0)
 
         self._store.replace_for_capture(capture.id, result.sessions)
+        findings = evaluate_sessions(result.sessions, self._policy)
+        self._store.replace_findings_for_capture(capture.id, findings)
         self._store.record_completed(capture.id, len(result.sessions), result.coverage_warnings)
-        logger.info("analyzed %s: %d session(s)", capture.id, len(result.sessions))
+        logger.info(
+            "analyzed %s: %d session(s), %d finding(s)",
+            capture.id,
+            len(result.sessions),
+            len(findings),
+        )
         return ("completed", len(result.sessions))
 
     def sessions_for(self, capture_id: str) -> list[Session]:
@@ -89,3 +101,12 @@ class CaptureAnalysisService:
 
     def analysis_status(self, capture_id: str) -> AnalysisRecord:
         return self._store.analysis_status(capture_id)
+
+    def findings_for_capture(self, capture_id: str) -> list[SecurityFinding]:
+        return self._store.list_findings_for_capture(capture_id)
+
+    def findings_for_session(self, session_id: str) -> list[SecurityFinding]:
+        return self._store.list_findings_for_session(session_id)
+
+    def finding(self, finding_id: str) -> SecurityFinding | None:
+        return self._store.get_finding(finding_id)

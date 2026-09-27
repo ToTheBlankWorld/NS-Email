@@ -4,6 +4,7 @@ Maps wire codes to standard names and derives the key-exchange family of
 a selected suite. Pure lookup tables — no scoring, no verdicts.
 """
 
+from enum import StrEnum
 from typing import Final
 
 from engine.core.tls import KeyExchange
@@ -130,3 +131,75 @@ SIGNATURE_ALGORITHM_NAMES: Final[dict[int, str]] = {
     0x0807: "ed25519",
     0x0808: "ed448",
 }
+
+
+class CipherClass(StrEnum):
+    """Policy-facing classification of a cipher suite.
+
+    ``unknown`` means "not in the local registry" — it is deliberately
+    distinct from ``prohibited``/``deprecated`` so an unknown code is
+    never treated as weak.
+    """
+
+    MODERN_AEAD = "modern_aead"
+    LEGACY = "legacy"
+    DEPRECATED = "deprecated"
+    PROHIBITED = "prohibited"
+    UNKNOWN = "unknown"
+
+
+# Additional named suites that only appear in the classification registry
+# (prohibited/deprecated families beyond the common name table above).
+_EXTRA_SUITE_NAMES: Final[dict[int, str]] = {
+    0x0001: "TLS_RSA_WITH_NULL_MD5",
+    0x0002: "TLS_RSA_WITH_NULL_SHA",
+    0x0003: "TLS_RSA_EXPORT_WITH_RC4_40_MD5",
+    0x0004: "TLS_RSA_WITH_RC4_128_MD5",
+    0x0005: "TLS_RSA_WITH_RC4_128_SHA",
+    0x0006: "TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5",
+    0x0008: "TLS_RSA_EXPORT_WITH_DES40_CBC_SHA",
+    0x0009: "TLS_RSA_WITH_DES_CBC_SHA",
+    0x000A: "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+    0x0011: "TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA",
+    0x0012: "TLS_DHE_DSS_WITH_DES_CBC_SHA",
+    0x0014: "TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA",
+    0x0015: "TLS_DHE_RSA_WITH_DES_CBC_SHA",
+    0x0017: "TLS_DH_anon_EXPORT_WITH_RC4_40_MD5",
+    0x0018: "TLS_DH_anon_WITH_RC4_128_MD5",
+    0x0019: "TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA",
+    0x001A: "TLS_DH_anon_WITH_DES_CBC_SHA",
+    0x001B: "TLS_DH_anon_WITH_3DES_EDE_CBC_SHA",
+    0x008B: "TLS_PSK_WITH_NULL_SHA256",
+    0x0091: "TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA",
+    0xC008: "TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA",
+    0xC012: "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
+}
+
+CIPHER_SUITE_NAMES.update(_EXTRA_SUITE_NAMES)
+
+# Classification of every known suite code. AES-GCM/CHACHA20 suites with
+# ephemeral key exchange are modern AEAD; AES-CBC suites with ephemeral
+# key exchange are legacy-but-usable; 3DES and DES-CBC are deprecated
+# (SWEET32 / short block); RC4, NULL, export, and anonymous suites are
+# prohibited.
+CIPHER_SUITE_CLASSES: Final[dict[int, CipherClass]] = dict.fromkeys(
+    (4865, 4866, 4867, 4868, 4869, 49195, 49196, 49199, 49200, 156, 157), CipherClass.MODERN_AEAD
+)
+CIPHER_SUITE_CLASSES.update(
+    dict.fromkeys(
+        (49171, 49172, 49161, 49162, 49191, 49192, 51, 52, 103, 107, 158, 159), CipherClass.LEGACY
+    )
+)
+CIPHER_SUITE_CLASSES.update(
+    dict.fromkeys((10, 19, 22, 27, 49160, 49170, 145), CipherClass.DEPRECATED)
+)
+CIPHER_SUITE_CLASSES.update(
+    dict.fromkeys(
+        (1, 2, 3, 4, 5, 6, 8, 9, 17, 18, 20, 21, 23, 24, 25, 26, 139), CipherClass.PROHIBITED
+    )
+)
+
+
+def classify_cipher_suite(code: int) -> CipherClass:
+    """Classify a suite code; codes absent from the registry stay unknown."""
+    return CIPHER_SUITE_CLASSES.get(code, CipherClass.UNKNOWN)

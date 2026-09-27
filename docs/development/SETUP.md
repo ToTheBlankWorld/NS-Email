@@ -74,6 +74,22 @@ IPv4/TCP) and works without tshark. Captures with gaps, reordering, or
 retransmissions report them honestly; credentials found in plaintext are
 redacted before storage.
 
+Stage 4 adds deterministic findings to every analysis run. Findings are
+available per capture and per session:
+
+```bash
+curl http://127.0.0.1:8000/api/captures/<capture_id>/findings
+curl http://127.0.0.1:8000/api/sessions/<session_id>/findings
+curl http://127.0.0.1:8000/api/findings/<finding_id>
+```
+
+Findings are produced by the versioned built-in baseline
+(`securemailscope-baseline` v1.0, shipped at
+`engine/detection/data/`). To evaluate against a custom policy, point
+`NS_EMAIL_POLICY_FILE` at a JSON document that validates against the
+typed policy models in `engine/detection/policy.py` — policy files are
+parsed as structured data only (no code execution).
+
 Evidence identity is the SHA-256 of the bytes: re-uploading the same capture returns the
 existing registration (`duplicate: true`). Evidence files live under
 `NS_EMAIL_CAPTURE_STORAGE/<capture_id>/evidence.<format>` — never under the upload

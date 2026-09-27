@@ -9,6 +9,7 @@ from datetime import datetime
 
 from engine.core.capture import Capture, CaptureStatus
 from engine.core.events import SessionEvent
+from engine.core.findings import SecurityFinding
 from engine.core.session import (
     Confidence,
     EmailProtocol,
@@ -183,6 +184,87 @@ class CertificateInfo(BaseModel):
     subject_alternative_names: list[str] = Field(default_factory=list)
     fingerprint_sha256: str | None = None
     position_in_chain: int | None = None
+
+
+class EvidenceRefOut(BaseModel):
+    source: str
+    packet_numbers: list[int] = Field(default_factory=list)
+    detail: str | None = None
+
+
+class RemediationOut(BaseModel):
+    action: str
+    target: str | None = None
+    rationale: str | None = None
+    priority: str | None = None
+
+
+class StandardReferenceOut(BaseModel):
+    name: str
+    url: str | None = None
+
+
+class FindingResponse(BaseModel):
+    """One deterministic, evidence-backed security finding."""
+
+    id: str
+    capture_id: str | None = None
+    session_id: str | None = None
+    protocol: str | None = None
+    title: str
+    description: str
+    severity: str
+    confidence: str
+    category: str
+    rule_id: str
+    evidence_refs: list[EvidenceRefOut] = Field(default_factory=list)
+    observed_value: str | None = None
+    expected_value: str | None = None
+    remediation: RemediationOut | None = None
+    standard_reference: StandardReferenceOut | None = None
+    first_packet: int | None = None
+    last_packet: int | None = None
+
+    @classmethod
+    def from_finding(cls, finding: SecurityFinding) -> "FindingResponse":
+        return cls(
+            id=finding.id,
+            capture_id=finding.capture_id,
+            session_id=finding.session_id,
+            protocol=finding.protocol,
+            title=finding.title,
+            description=finding.description,
+            severity=finding.severity.value,
+            confidence=finding.confidence.value,
+            category=finding.category.value,
+            rule_id=finding.rule_id,
+            evidence_refs=[
+                EvidenceRefOut(
+                    source=ref.source,
+                    packet_numbers=ref.packet_numbers,
+                    detail=ref.detail,
+                )
+                for ref in finding.evidence_refs
+            ],
+            observed_value=finding.observed_value,
+            expected_value=finding.expected_value,
+            remediation=RemediationOut(
+                action=finding.remediation.action,
+                target=finding.remediation.target,
+                rationale=finding.remediation.rationale,
+                priority=finding.remediation.priority,
+            )
+            if finding.remediation
+            else None,
+            standard_reference=StandardReferenceOut(
+                name=finding.standard_reference.name,
+                url=finding.standard_reference.url,
+            )
+            if finding.standard_reference
+            else None,
+            first_packet=finding.first_packet,
+            last_packet=finding.last_packet,
+        )
 
 
 class SessionEventOut(BaseModel):

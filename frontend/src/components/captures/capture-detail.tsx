@@ -12,6 +12,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 
+import { FindingsSection } from "@/components/findings/findings-section";
 import { HashRow } from "@/components/hash-row";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -395,6 +396,8 @@ export function CaptureDetail({ captureId }: { captureId: string }) {
       <AnalysisCard capture={capture} sessions={sessions} onAnalyzed={onAnalyzed} />
 
       <SessionsTable captureId={capture.id} />
+
+      <FindingsSection captureId={capture.id} />
     </div>
   );
 }
