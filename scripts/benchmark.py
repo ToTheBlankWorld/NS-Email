@@ -24,6 +24,95 @@ from scripts.fixtures import load_scenarios
 from scripts.runner import run_scenario
 
 
+def _median(values: list[float]) -> float:
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
+
+
+def benchmark_drift(*, repeat: int = 3) -> dict[str, object]:
+    """Controlled longitudinal regression: three observations, one case.
+
+    Measures observation count, comparison count, findings compared,
+    drift records generated, and wall-clock durations over the real API
+    using the deterministic drift fixtures. The consecutive-pair chain
+    is linear in observations (indexed lookups, never pairwise across
+    unrelated evidence). Timings are a regression baseline for this
+    machine only — not throughput or capacity claims.
+    """
+    import tempfile
+
+    from fastapi.testclient import TestClient
+
+    from app.config import DEFAULT_CORS_ORIGINS, Settings
+    from app.main import create_app
+    from scripts.drift_fixtures import load_drift_scenarios
+
+    scenarios = {s.scenario_id: s for s in load_drift_scenarios()}
+    order = ("drift-capture-a", "drift-capture-b", "drift-capture-c")
+    durations: list[float] = []
+    result: dict[str, object] = {}
+    for _ in range(max(1, repeat)):
+        with tempfile.TemporaryDirectory(prefix="nse_drift_bench_") as tmp:
+            settings = Settings(
+                service_name="ns-email",
+                app_version="0.0.0",
+                cors_origins=DEFAULT_CORS_ORIGINS,
+                capture_storage_dir=Path(tmp) / "captures",
+                ai_provider="mock",
+            )
+            client = TestClient(create_app(settings))
+            started = time.perf_counter()
+            case_id = client.post(
+                "/api/cases",
+                json={"title": "Benchmark", "description": "", "priority": "LOW"},
+            ).json()["case_id"]
+            capture_ids = []
+            for scenario_id in order:
+                scenario = scenarios[scenario_id]
+                capture_id = client.post(
+                    "/api/captures",
+                    files={
+                        "file": (
+                            scenario.filename,
+                            scenario.pcap,
+                            "application/octet-stream",
+                        )
+                    },
+                ).json()["id"]
+                client.post(f"/api/captures/{capture_id}/analyze")
+                client.post(f"/api/cases/{case_id}/captures", json={"capture_id": capture_id})
+                capture_ids.append(capture_id)
+            client.post(
+                f"/api/cases/{case_id}/observations/baseline",
+                json={"capture_id": capture_ids[0]},
+            )
+            observations = client.get(f"/api/cases/{case_id}/observations").json()["observations"]
+            comparisons = client.get(f"/api/cases/{case_id}/comparisons").json()["comparisons"]
+            drift = client.get(f"/api/cases/{case_id}/drift").json()
+            summary = client.get(f"/api/cases/{case_id}/drift/summary").json()
+            durations.append((time.perf_counter() - started) * 1000)
+            result = {
+                "observations": len(observations),
+                "comparisons": len(comparisons),
+                "findings_compared": sum(len(o.get("finding_rules", [])) for o in observations),
+                "drift_records": drift["total"],
+                "summary": {
+                    key: summary.get(key)
+                    for key in (
+                        "posture_changes",
+                        "new_findings",
+                        "resolved_findings",
+                        "recurring_findings",
+                        "configuration_changes",
+                        "anomaly_changes",
+                    )
+                },
+            }
+    result["longitudinal_total_ms"] = round(_median(durations), 1)
+    result["runs"] = repeat
+    return result
+
+
 def benchmark(*, repeat: int = 3) -> dict[str, object]:
     """Run each scenario `repeat` times; report median wall-clock timings."""
     scenarios = load_scenarios()
@@ -62,6 +151,7 @@ def benchmark(*, repeat: int = 3) -> dict[str, object]:
         "machine": sys.platform,
         "python": sys.version.split()[0],
         "scenarios": entries,
+        "drift": benchmark_drift(repeat=repeat),
         "note": (
             "Wall-clock timings on the development machine running the "
             "deterministic synthetic scenarios. These numbers are a "
@@ -95,6 +185,16 @@ def summarize(result: dict[str, object]) -> str:
             f"{entry['scenario']!s:32s} {entry['packets']:6d} "
             f"{entry['sessions']:5d} {entry['graph_nodes']:6d} "
             f"{entry['graph_edges']:6d} {entry['analysis_total_ms']:10.1f}"
+        )
+    drift = result.get("drift")
+    if isinstance(drift, dict):
+        lines.append("")
+        lines.append(
+            f"drift: {drift.get('observations')} observations, "
+            f"{drift.get('comparisons')} comparisons, "
+            f"{drift.get('findings_compared')} findings compared, "
+            f"{drift.get('drift_records')} drift records, "
+            f"{drift.get('longitudinal_total_ms')}ms longitudinal"
         )
     lines.append("")
     lines.append(str(result["note"]))

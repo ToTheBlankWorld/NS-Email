@@ -150,6 +150,7 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
     correlation = report.get("correlation", {})
     remediation = report.get("remediation", {})
     verification = report.get("verification", {})
+    longitudinal = report.get("longitudinal", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -346,6 +347,58 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
                 new_y=YPos.NEXT,
             )
             pdf.ln(2)
+
+    # Longitudinal analysis -------------------------------------------------------
+    _section_title(pdf, "Longitudinal Analysis")
+    _note(pdf, str(longitudinal.get("notice") or ""))
+    drift_summary = longitudinal.get("drift_summary", {})
+    _table(
+        pdf,
+        ["Observations", "Baseline", "Posture changes", "New", "Resolved", "Recurring"],
+        [
+            [
+                drift_summary.get("observations"),
+                drift_summary.get("baseline_capture_id"),
+                drift_summary.get("posture_changes"),
+                drift_summary.get("new_findings"),
+                drift_summary.get("resolved_findings"),
+                drift_summary.get("recurring_findings"),
+            ]
+        ]
+        if longitudinal.get("drift")
+        else [],
+        [28, 44, 30, 22, 24, 24],
+    )
+    _sub_title(pdf, "Posture trend")
+    _table(
+        pdf,
+        ["Capture", "Score", "State", "Change"],
+        [
+            [
+                t.get("capture_id"),
+                t.get("posture_score"),
+                t.get("posture_state"),
+                t.get("score_change_points"),
+            ]
+            for t in longitudinal.get("posture_trend", [])
+        ],
+        [52, 26, 52, 30],
+    )
+    _sub_title(pdf, "Drift records")
+    _table(
+        pdf,
+        ["Type", "Baseline", "Comparison", "Statement"],
+        [
+            [
+                d.get("drift_type"),
+                d.get("baseline_capture_id"),
+                d.get("comparison_capture_id"),
+                d.get("statement"),
+            ]
+            for d in longitudinal.get("drift", [])
+        ],
+        [44, 44, 44, 58],
+    )
 
     # Analyst work ------------------------------------------------------------
     pdf.add_page()

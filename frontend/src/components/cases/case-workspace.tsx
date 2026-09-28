@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CorrelationsTab } from "@/components/cases/correlations-tab";
+import { DriftTab } from "@/components/cases/drift-tab";
 import { RemediationsTab } from "@/components/cases/remediations-tab";
 import {
   getGraph,
@@ -60,6 +61,7 @@ const TABS = [
   "graph",
   "correlations",
   "remediations",
+  "drift",
   "notes",
   "bookmarks",
   "timeline",
@@ -313,6 +315,15 @@ export function CaseWorkspace({ caseId, initialTab }: { caseId: string; initialT
 
       {tab === "remediations" ? (
         <RemediationsTab
+          caseId={caseId}
+          captureIds={state.summary.captures
+            .filter((c) => c.available)
+            .map((c) => c.capture_id)}
+        />
+      ) : null}
+
+      {tab === "drift" ? (
+        <DriftTab
           caseId={caseId}
           captureIds={state.summary.captures
             .filter((c) => c.available)
@@ -993,8 +1004,10 @@ function ReportsTab({
           <p className="text-xs text-muted-foreground">
             Reports quote authoritative per-capture evidence, include the derived correlation
             section (shared evidence across captures — not attribution), the remediation
-            workflow and verification evidence sections, and clearly separate
-            analyst notes from AI interpretation. Tags on this case: {tags.join(", ") || "none"}.
+            workflow and verification evidence sections, the longitudinal analysis section
+            (posture trend, finding lifecycle, configuration drift — derived, never causal),
+            and clearly separate analyst notes from AI interpretation. Tags on this case:{" "}
+            {tags.join(", ") || "none"}.
           </p>
           <div className="flex flex-wrap gap-2">
             {(["json", "html", "pdf"] as const).map((format) => (

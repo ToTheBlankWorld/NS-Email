@@ -73,6 +73,7 @@ Stage 1 added `engine/ingestion` (evidence acquisition); Stage 2 adds
 | `engine.ml`            | Behavioral anomaly detection: typed feature extraction, IsolationForest model (Stage 6) |
 | `engine.graph`         | Forensic evidence graph: typed nodes/edges, certificate pivots, config fingerprints (Stage 7) |
 | `engine.ai`            | Evidence-grounded AI analyst: provider abstraction, context builder, response validation (Stage 8) |
+| `engine.drift`         | Longitudinal comparison: observation snapshots, pair comparison, lifecycle, deterministic drift records (Stage 14) |
 | `engine.analysis`      | Pipeline orchestration: packets → flows → sessions |
 
 Cross-cutting guarantees enforced by `engine/core/base.py`:
@@ -269,6 +270,30 @@ recomputing it; manual verification is analyst notes labeled
 and verification sections; import accepts 1.0/1.1/1.2 but resets
 verification state. No AI involvement in verification. Full rationale
 and boundaries: `docs/decisions/013-remediation-and-verification.md`.
+
+### Stage 14: longitudinal security drift
+
+Drift (`engine/drift`, `backend/app/drift_store.py`, `backend/app/
+services/drift.py`, `backend/app/routers/drift.py`) derives
+longitudinal intelligence from immutable observations. The engine
+(`build_observation` → `compare_pair` over consecutive attachment-
+ordered pairs plus explicit analyst-chosen pairs, indexed lookups,
+never O(N²)) emits a fixed ten-type drift vocabulary and five
+finding-lifecycle states with `drift_<sha256(...)[:16]>` ids bound
+to case + baseline + comparison + type + evidence key. Only the
+analyst-selected baseline persists (`case_baselines` table,
+timeline-audited); observations, comparisons, and drift records are
+recomputed on demand and can never go stale. Posture trends quote
+Stage 5 scores with arithmetic deltas; remediation regressions link
+(requiring a VERIFIED verification for the same rule) without
+transitioning workflow state; correlation presence feeds
+pattern-change detection. Reports/exports (schema 1.3) embed the
+longitudinal section; import accepts 1.0–1.3 but discards imported
+drift and recomputes locally. The frontend Drift tab (posture
+trend, finding lifecycle, configuration changes, regressions,
+observations) uses labeled tables — no causal charts. AI remains
+interpretation-only. Full rationale and boundaries:
+`docs/decisions/014-longitudinal-drift-analysis.md`.
 
 ## Security boundaries
 

@@ -37,6 +37,8 @@ ERROR_CASE_NOT_FOUND = "case_not_found"
 ERROR_CORRELATION_NOT_FOUND = "correlation_not_found"
 ERROR_REMEDIATION_NOT_FOUND = "remediation_not_found"
 ERROR_VERIFICATION_NOT_FOUND = "verification_not_found"
+ERROR_DRIFT_NOT_FOUND = "drift_not_found"
+ERROR_BASELINE_NOT_FOUND = "baseline_not_found"
 
 
 class ApiError(Exception):

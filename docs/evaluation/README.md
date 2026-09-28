@@ -115,6 +115,7 @@ python -m scripts.evaluate --repeat 2               # ground-truth evaluation
 python -m scripts.evaluate_cases --repeat 2         # case workflow evaluation
 python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation
 python -m scripts.evaluate_remediation --repeat 2   # remediation evaluation
+python -m scripts.evaluate_drift --repeat 2         # longitudinal drift evaluation
 python -m scripts.benchmark --repeat 3              # performance baseline
 python -m scripts.demo --run-once                   # offline demo verification
 ```
@@ -143,6 +144,42 @@ behavior over controlled fixtures — it does not measure real-world
 investigative efficacy, and case metadata never alters forensic
 conclusions (asserted by both the harness and the backend regression
 suite).
+
+## 13. Drift evaluation (Stage 14)
+
+`python -m scripts.evaluate_drift --repeat 2` drives a synthetic
+three-capture longitudinal case through the real API using the
+deterministic drift fixtures (`scripts/drift_fixtures.py`):
+
+- **A:** TLS 1.0 + CBC + single valid certificate →
+  TLS-VERSION-001, CIPHER-SELECTED-001, CERT-CHAIN-001, posture
+  degraded.
+- **B:** TLS 1.2 + AEAD + full valid chain → no findings, posture
+  healthy.
+- **C:** TLS 1.0 + CBC + the same certificate bytes as A, observed
+  after expiry → the original three rules return plus
+  CERT-VALIDITY-001, posture high_exposure below A.
+
+Ground truth (defined before execution): A→B carries posture
+change, 3 resolved findings, TLS/certificate/correlation changes;
+B→C carries posture change, 3 recurred findings, 1 introduced
+finding, TLS/certificate/correlation changes; an explicit A-vs-C
+comparison carries the single certificate-validity record. The
+harness asserts the exact drift set (types, evidence keys,
+anchors), exact drift-id recomputation, summary counts (33
+records), lifecycle states, posture relations (C < A < B),
+remediation regression linkage (VERIFIED against B, recurred in C
+→ "may require review"), negative cases (cross-case, unattached,
+unanalyzed, same-pair, malformed ids/filters), findings
+integrity, report/export integration (schema 1.3), bundle layout,
+and import recomputation (drift rebuilt locally, links reset).
+Cross-run determinism compares evidence-derived structure; drift
+ids additionally bind the random case id, so exact equality is
+asserted within a run. `python -m scripts.benchmark` additionally
+reports the longitudinal regression (observations, comparisons,
+findings compared, drift records, duration). Drift is derived
+from observed captures; it does not prove causality, and repeated
+findings do not prove malicious activity.
 
 ## 11. Correlation evaluation (Stage 12)
 

@@ -3,7 +3,7 @@
 Covers normalization, the index-based engine (deterministic ids,
 cross-capture only, strength categories), the correlation API
 (list/summary/detail/context/related/graph with filters), report and
-export integration (schema 1.1, 1.0 import compatibility), AI query
+export integration (current schema, 1.0 import compatibility), AI query
 boundaries, security validation, evidence integrity, and an index-scale
 performance regression.
 """
@@ -571,7 +571,7 @@ class TestCorrelationReportExport:
         client = make_api()
         case = self._correlated_case(client)
         export = client.get(f"/api/cases/{case['case_id']}/export").json()
-        assert export["schema_version"] == "1.2"
+        assert export["schema_version"] == "1.3"
         assert "correlations" in export
         assert "correlation_summary" in export
         assert "remediations" in export

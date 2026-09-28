@@ -360,11 +360,11 @@ def run_remediation_evaluation() -> RemediationEvaluation:
         export = client.get(f"/api/cases/{case_id}/export").json()
         _check(
             checks,
-            "export_schema_12",
-            export["schema_version"] == "1.2"
+            "export_schema_13",
+            export["schema_version"] == "1.3"
             and len(export["remediations"]) == 1
             and len(export["verification_results"]) == 4,
-            "1.2 with workflow",
+            "1.3 with workflow",
             export.get("schema_version", "?"),
         )
         observed["verification_results"] = [

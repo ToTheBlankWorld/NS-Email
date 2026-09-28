@@ -1,0 +1,51 @@
+"""Longitudinal security drift analysis (Stage 14)."""
+
+from engine.drift.engine import (
+    build_observation,
+    classify_lifecycle,
+    compare_pair,
+    lifecycle_at,
+    posture_trend,
+    summarize_drift,
+)
+from engine.drift.model import (
+    DRIFT_ID_PREFIX,
+    MAX_DRIFT_PER_CASE,
+    MAX_EVIDENCE_REFS_PER_DRIFT,
+    OBSERVATION_ID_PREFIX,
+    CertObservation,
+    ComparisonResult,
+    DriftRecord,
+    DriftType,
+    FindingLifecycle,
+    LifecycleRow,
+    ObservationView,
+    RulePresence,
+    TlsConfigObservation,
+    drift_id,
+    observation_id,
+)
+
+__all__ = [
+    "DRIFT_ID_PREFIX",
+    "MAX_DRIFT_PER_CASE",
+    "MAX_EVIDENCE_REFS_PER_DRIFT",
+    "OBSERVATION_ID_PREFIX",
+    "CertObservation",
+    "ComparisonResult",
+    "DriftRecord",
+    "DriftType",
+    "FindingLifecycle",
+    "LifecycleRow",
+    "ObservationView",
+    "RulePresence",
+    "TlsConfigObservation",
+    "build_observation",
+    "classify_lifecycle",
+    "compare_pair",
+    "drift_id",
+    "lifecycle_at",
+    "observation_id",
+    "posture_trend",
+    "summarize_drift",
+]

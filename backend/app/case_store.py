@@ -79,6 +79,8 @@ TIMELINE_EVENT_TYPES: tuple[str, ...] = (
     "report_generated",
     "case_exported",
     "status_changed",
+    "baseline_selected",
+    "baseline_cleared",
 )
 
 MAX_TITLE_LENGTH = 200

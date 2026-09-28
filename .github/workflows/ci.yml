@@ -45,6 +45,9 @@ jobs:
       - name: Remediation evaluation suite
         run: python -m scripts.evaluate_remediation --repeat 2
 
+      - name: Drift evaluation suite
+        run: python -m scripts.evaluate_drift --repeat 2
+
       - name: Demo workflow (offline, mock AI)
         run: python -m scripts.demo --run-once
 

@@ -97,6 +97,7 @@ def render_case_html_report(report: dict[str, Any]) -> str:
     correlation = report.get("correlation", {})
     remediation = report.get("remediation", {})
     verification = report.get("verification", {})
+    longitudinal = report.get("longitudinal", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -307,6 +308,77 @@ def render_case_html_report(report: dict[str, Any]) -> str:
                     ],
                 )
             )
+    parts.append("</section>")
+
+    # Longitudinal analysis --------------------------------------------------
+    parts.append("<section><h2>Longitudinal Analysis</h2>")
+    parts.append(f'<p class="note">{_esc(longitudinal.get("notice"))}</p>')
+    summary = longitudinal.get("drift_summary", {})
+    parts.append(
+        _render_table(
+            ["Observations", "Baseline", "Posture changes", "New", "Resolved", "Recurring"],
+            [
+                [
+                    _esc(summary.get("observations")),
+                    _esc(summary.get("baseline_capture_id")),
+                    _esc(summary.get("posture_changes")),
+                    _esc(summary.get("new_findings")),
+                    _esc(summary.get("resolved_findings")),
+                    _esc(summary.get("recurring_findings")),
+                ]
+            ],
+        )
+    )
+    parts.append("<h3>Observation timeline</h3>")
+    parts.append(
+        _render_table(
+            ["Capture", "Analyzed at", "Posture state", "Score", "Sessions", "Rules"],
+            [
+                [
+                    _esc(o.get("capture_id")),
+                    _esc(o.get("analyzed_at")),
+                    _esc(o.get("posture_state")),
+                    _esc(o.get("posture_score")),
+                    _esc(o.get("session_count")),
+                    _esc(", ".join(r.get("rule_id", "") for r in o.get("finding_rules", []))),
+                ]
+                for o in longitudinal.get("observations", [])
+            ],
+        )
+    )
+    parts.append("<h3>Posture trend</h3>")
+    parts.append(
+        _render_table(
+            ["Capture", "Timestamp", "Score", "State", "Change (points)"],
+            [
+                [
+                    _esc(t.get("capture_id")),
+                    _esc(t.get("analyzed_at")),
+                    _esc(t.get("posture_score")),
+                    _esc(t.get("posture_state")),
+                    _esc(t.get("score_change_points")),
+                ]
+                for t in longitudinal.get("posture_trend", [])
+            ],
+        )
+    )
+    parts.append("<h3>Drift records</h3>")
+    parts.append(
+        _render_table(
+            ["Drift", "Type", "Baseline", "Comparison", "Evidence key", "Statement"],
+            [
+                [
+                    _esc(d.get("drift_id")),
+                    _esc(d.get("drift_type")),
+                    _esc(d.get("baseline_capture_id")),
+                    _esc(d.get("comparison_capture_id")),
+                    _esc(d.get("evidence_key")),
+                    _esc(d.get("statement")),
+                ]
+                for d in longitudinal.get("drift", [])
+            ],
+        )
+    )
     parts.append("</section>")
 
     # Analyst work -------------------------------------------------------

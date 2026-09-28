@@ -388,6 +388,7 @@ python -m scripts.evaluate --repeat 2       # ground-truth evaluation (exit 1 on
 python -m scripts.evaluate_cases --repeat 2 # case workflow evaluation (exit 1 on regression)
 python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation (exit 1)
 python -m scripts.evaluate_remediation --repeat 2   # remediation evaluation (exit 1)
+python -m scripts.evaluate_drift --repeat 2         # longitudinal drift evaluation (exit 1)
 python -m scripts.benchmark --repeat 3      # performance baseline (synthetic fixtures)
 python -m scripts.demo                      # offline SIH demo (mock AI, real APIs)
 python -m scripts.demo --run-once           # CI-safe demo verification

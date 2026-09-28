@@ -59,16 +59,19 @@ from app.storage import CaptureStorage
 
 if TYPE_CHECKING:
     from app.services.correlations import CorrelationService
+    from app.services.drift import DriftService
     from app.services.remediations import RemediationService
 
-CASE_EXPORT_SCHEMA_VERSION = "1.2"
+CASE_EXPORT_SCHEMA_VERSION = "1.3"
 CASE_EXPORT_SCHEMA_VERSION_1_0 = "1.0"
 CASE_EXPORT_SCHEMA_VERSION_1_1 = "1.1"
-#: Schema versions accepted on import. Correlations are always recomputed
-#: from local evidence, and verification state is always reset, so older
-#: bundles import cleanly.
+CASE_EXPORT_SCHEMA_VERSION_1_2 = "1.2"
+#: Schema versions accepted on import. Correlations and drift are always
+#: recomputed from local evidence, and verification state is always
+#: reset, so older bundles import cleanly.
 SUPPORTED_IMPORT_SCHEMA_VERSIONS = (
     CASE_EXPORT_SCHEMA_VERSION,
+    CASE_EXPORT_SCHEMA_VERSION_1_2,
     CASE_EXPORT_SCHEMA_VERSION_1_1,
     CASE_EXPORT_SCHEMA_VERSION_1_0,
 )
@@ -106,6 +109,13 @@ def _require_case_id(case_id: str) -> str:
     if not CASE_ID_PATTERN.fullmatch(cleaned):
         raise CaseNotFoundError(case_id)
     return cleaned
+
+
+def _attachment_order_key(entry: Any) -> int:
+    """Sort key restoring export attachment order (stable for legacy entries)."""
+    if isinstance(entry, dict) and isinstance(entry.get("attachment_index"), int):
+        return int(entry["attachment_index"])
+    return 10**9
 
 
 def _record_to_dict(record: CaseRecord) -> dict[str, Any]:
@@ -176,6 +186,7 @@ class CaseService:
         self._ai_service: Any = None
         self._correlation_service: CorrelationService | None = None
         self._remediation_service: RemediationService | None = None
+        self._drift_service: DriftService | None = None
 
     # -- cases -----------------------------------------------------------
 
@@ -252,6 +263,9 @@ class CaseService:
         record = self.get_case(case_id)
         if not self._cases.detach_capture(record.case_id, capture_id.strip()):
             raise CaseValidationError("capture is not attached to this case")
+        service = self._drift_service
+        if service is not None:
+            service.clear_baseline_if_match(record.case_id, capture_id.strip())
 
     def attached_capture_ids(self, case_id: str) -> list[CaptureAttachment]:
         record = self.get_case(case_id)
@@ -475,6 +489,7 @@ class CaseService:
         timeline = self._cases.list_timeline(record.case_id)
         reports = self._cases.list_reports(record.case_id)
         remediation_counts = self._remediation_counts(record.case_id)
+        drift_counts = self._drift_counts(record.case_id)
         return {
             "case": _record_to_dict(record),
             "counts": {
@@ -488,6 +503,7 @@ class CaseService:
                 "timeline_events": len(timeline),
                 "reports": len(reports),
                 "remediations": remediation_counts,
+                "drift": drift_counts,
             },
             "captures": sorted(capture_cards, key=lambda c: str(c["capture_id"])),
             "reports": reports,
@@ -508,6 +524,22 @@ class CaseService:
                 "inconclusive": 0,
             }
         return service.remediation_counts(case_id)
+
+    def _drift_counts(self, case_id: str) -> dict[str, Any]:
+        """Longitudinal counts for the summary; absent service means none."""
+        service = self._drift_service
+        if service is None:
+            return {
+                "observations": 0,
+                "baseline_capture_id": None,
+                "drift_records": 0,
+            }
+        summary = service.drift_summary(case_id)
+        return {
+            "observations": summary["observations"],
+            "baseline_capture_id": summary["baseline_capture_id"],
+            "drift_records": summary["drift_count"],
+        }
 
     def _report_inputs(self, case_id: str) -> CaseReportInputs:
         record = self.get_case(case_id)
@@ -592,6 +624,7 @@ class CaseService:
         remediations, remediation_timeline, verification_results = self._remediation_export(
             record.case_id
         )
+        longitudinal = self._drift_export(record.case_id)
         bookmarks = [_bookmark_to_dict(b) for b in self._cases.list_bookmarks(record.case_id)]
         notes = [_note_to_dict(n) for n in self._cases.list_notes(record.case_id)]
         tags = self._cases.list_tags(record.case_id)
@@ -618,6 +651,7 @@ class CaseService:
             remediations=remediations,
             remediation_timeline=remediation_timeline,
             verification_results=verification_results,
+            longitudinal=longitudinal,
             bookmarks=bookmarks,
             notes=notes,
             tags=tags,
@@ -659,6 +693,14 @@ class CaseService:
         """
         self._remediation_service = remediation_service
 
+    def attach_drift_service(self, drift_service: Any) -> None:
+        """Provide the drift service for summary/report/export assembly.
+
+        Same attachment pattern: drift is derived on demand, so the
+        service is attached rather than imported.
+        """
+        self._drift_service = drift_service
+
     def _case_correlations(self, case_id: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Correlations plus summary for reports/exports (never persisted)."""
         service = self._correlation_service
@@ -677,6 +719,22 @@ class CaseService:
         service = self._remediation_service
         if service is None:
             return [], [], []
+        return service.export_data(case_id)
+
+    def _drift_export(self, case_id: str) -> dict[str, Any]:
+        """Longitudinal observations, comparisons, and drift for reports/exports."""
+        from engine.drift import summarize_drift
+
+        service = self._drift_service
+        if service is None:
+            return {
+                "observations": [],
+                "baseline": {"case_id": case_id, "baseline_capture_id": None},
+                "comparisons": [],
+                "drift": [],
+                "drift_summary": summarize_drift(case_id, None, 0, []),
+                "posture_trend": [],
+            }
         return service.export_data(case_id)
 
     # -- reports -----------------------------------------------------------
@@ -703,6 +761,16 @@ class CaseService:
         """Build the versioned case export document (no side effects)."""
         record = self.get_case(case_id)
         inputs = self._report_inputs(record.case_id)
+        # Attachment order is recorded explicitly so imports restore the
+        # same canonical observation order (export itself stays sorted).
+        attach_order = {
+            attachment.capture_id: index
+            for index, attachment in enumerate(self._cases.list_attachments(record.case_id))
+        }
+        export_captures = [
+            {**capture, "attachment_index": attach_order.get(str(capture.get("capture_id")), 0)}
+            for capture in inputs.captures
+        ]
         return {
             "schema_version": CASE_EXPORT_SCHEMA_VERSION,
             "application": {
@@ -710,7 +778,7 @@ class CaseService:
                 "version": self._app_version,
             },
             "case": _record_to_dict(record),
-            "captures": inputs.captures,
+            "captures": export_captures,
             "findings": sorted(
                 inputs.findings,
                 key=lambda f: (
@@ -736,6 +804,11 @@ class CaseService:
             "remediations": inputs.remediations,
             "remediation_timeline": inputs.remediation_timeline,
             "verification_results": inputs.verification_results,
+            "observations": inputs.longitudinal.get("observations", []),
+            "baseline": inputs.longitudinal.get("baseline", {}),
+            "comparisons": inputs.longitudinal.get("comparisons", []),
+            "drift": inputs.longitudinal.get("drift", []),
+            "drift_summary": inputs.longitudinal.get("drift_summary", {}),
             "provenance": inputs.provenance,
         }
 
@@ -878,7 +951,11 @@ class CaseService:
             record = self._cases.update_case(record.case_id, status=status) or record
         warnings: list[str] = []
         attached = 0
-        for entry in raw_captures:
+        # Restore the source attachment order so the imported case keeps
+        # the same canonical observation order; entries without an index
+        # (older bundles) keep their listed relative order.
+        ordered_captures = sorted(raw_captures, key=_attachment_order_key)
+        for entry in ordered_captures:
             if not isinstance(entry, dict):
                 warnings.append("skipped a malformed capture entry")
                 continue
@@ -940,6 +1017,31 @@ class CaseService:
             warnings.append(
                 "imported correlations are not trusted; they will be recomputed from local evidence"
             )
+        for section in ("observations", "comparisons", "drift"):
+            entries = document.get(section, [])
+            if entries is None:
+                continue
+            if not isinstance(entries, list):
+                raise CaseValidationError(f"import document has an invalid {section} section")
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    warnings.append(f"skipped a malformed imported {section[:-1]} entry")
+            if entries:
+                warnings.append(
+                    f"imported {section} discarded; longitudinal analysis is recomputed "
+                    "from local evidence"
+                )
+        drift_summary_raw = document.get("drift_summary", {})
+        if drift_summary_raw is None:
+            drift_summary_raw = {}
+        if not isinstance(drift_summary_raw, dict):
+            raise CaseValidationError("import document has an invalid drift_summary section")
+        if drift_summary_raw:
+            warnings.append(
+                "imported drift_summary discarded; longitudinal analysis is recomputed "
+                "from local evidence"
+            )
+        self._import_baseline(record.case_id, document.get("baseline", {}), warnings)
         imported_remediations = self._import_remediations(
             record.case_id, raw_remediations, warnings
         )
@@ -972,6 +1074,32 @@ class CaseService:
             "warnings": warnings,
         }
         return final, summary
+
+    def _import_baseline(self, case_id: str, raw_baseline: Any, warnings: list[str]) -> None:
+        """Restore an imported baseline selection when its capture attached locally.
+
+        Drift, comparisons, and observations are always recomputed; only
+        the analyst's baseline choice transfers, and only when the
+        referenced capture was attached with matching evidence.
+        """
+        if raw_baseline is None:
+            return
+        if not isinstance(raw_baseline, dict):
+            raise CaseValidationError("import document has an invalid baseline section")
+        baseline_capture_id = raw_baseline.get("baseline_capture_id")
+        if baseline_capture_id is None:
+            return
+        if not isinstance(baseline_capture_id, str) or not baseline_capture_id.strip():
+            warnings.append("skipped a malformed imported baseline")
+            return
+        service = self._drift_service
+        if service is None:
+            warnings.append("baseline skipped: drift service is not configured")
+            return
+        try:
+            service.set_baseline(case_id, baseline_capture_id)
+        except (CaseNotFoundError, CaseValidationError, CaptureNotFoundError) as error:
+            warnings.append(f"baseline not restored: {error}")
 
     def _import_remediations(
         self, case_id: str, raw_remediations: list[object], warnings: list[str]

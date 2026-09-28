@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.case_store import CaseStore
 from app.config import Settings, load_settings, validate_settings
+from app.drift_store import DriftStore
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
 from app.remediation_store import RemediationStore
@@ -23,6 +24,7 @@ from app.routers import (
     captures,
     cases,
     correlations,
+    drift,
     findings,
     graph,
     health,
@@ -34,6 +36,7 @@ from app.routers import (
 from app.services.analysis import CaptureAnalysisService
 from app.services.cases import CaseService
 from app.services.correlations import CorrelationService
+from app.services.drift import DriftService
 from app.services.ingestion import CaptureIngestionService
 from app.services.remediations import RemediationService
 from app.storage import CaptureStorage
@@ -87,12 +90,14 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
     store = SQLiteSessionStore(storage.registry_path())
     case_store = CaseStore(storage.registry_path())
     remediation_store = RemediationStore(storage.registry_path())
+    drift_store = DriftStore(storage.registry_path())
     policy = _load_policy(settings)
     app.state.capture_storage = storage
     app.state.capture_registry = registry
     app.state.session_store = store
     app.state.case_store = case_store
     app.state.remediation_store = remediation_store
+    app.state.drift_store = drift_store
     app.state.policy = policy
     app.state.ingestion_service = CaptureIngestionService(
         storage=storage,
@@ -133,6 +138,16 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
     )
     app.state.remediation_service = remediation_service
     case_service.attach_remediation_service(remediation_service)
+    drift_service = DriftService(
+        drift_store=drift_store,
+        case_store=case_store,
+        registry=registry,
+        analysis=analysis_service,
+        remediation_store=remediation_store,
+    )
+    drift_service.attach_correlation_service(correlation_service)
+    app.state.drift_service = drift_service
+    case_service.attach_drift_service(drift_service)
     app.state.case_service = case_service
     app.state.settings = settings
 
@@ -168,6 +183,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(captures.router)
     app.include_router(cases.router)
     app.include_router(correlations.router)
+    app.include_router(drift.router)
     app.include_router(remediations.router)
     app.include_router(sessions.router)
     app.include_router(findings.router)

@@ -344,9 +344,9 @@ def run_correlation_evaluation() -> CorrelationEvaluation:
         export = client.get(f"/api/cases/{case_id}/export").json()
         _check(
             checks,
-            "export_schema_12",
-            export["schema_version"] == "1.2" and len(export["correlations"]) == 10,
-            "1.2 with 10",
+            "export_schema_13",
+            export["schema_version"] == "1.3" and len(export["correlations"]) == 10,
+            "1.3 with 10",
             f"{export.get('schema_version')} x{len(export.get('correlations', []))}",
         )
         intact = all(

@@ -53,6 +53,7 @@ class CaseReportInputs:
     remediations: list[dict[str, Any]] = field(default_factory=list)
     remediation_timeline: list[dict[str, Any]] = field(default_factory=list)
     verification_results: list[dict[str, Any]] = field(default_factory=list)
+    longitudinal: dict[str, Any] = field(default_factory=dict)
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
     notes: list[dict[str, Any]] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -83,6 +84,7 @@ def evidence_digest(inputs: CaseReportInputs) -> str:
             "correlations": inputs.correlations,
             "remediations": inputs.remediations,
             "verification_results": inputs.verification_results,
+            "longitudinal": inputs.longitudinal,
         },
         sort_keys=True,
         default=str,
@@ -117,6 +119,7 @@ def build_case_report(inputs: CaseReportInputs) -> dict[str, Any]:
         "correlation": _correlation_section(inputs.correlations, inputs.correlation_summary),
         "remediation": _remediation_section(inputs.remediations),
         "verification": _verification_section(inputs.verification_results),
+        "longitudinal": _longitudinal_section(inputs.longitudinal),
         "analyst_work": {
             "notice": (
                 "Analyst-authored metadata. Notes, tags, and bookmarks record "
@@ -270,6 +273,27 @@ def _verification_section(verifications: list[dict[str, Any]]) -> dict[str, Any]
         "count": len(verifications),
         "by_result": dict(sorted(by_result.items())),
         "results": list(verifications),
+    }
+
+
+def _longitudinal_section(longitudinal: dict[str, Any]) -> dict[str, Any]:
+    """Derived longitudinal analysis: observations, trend, lifecycle, drift."""
+    summary = longitudinal.get("drift_summary", {}) if longitudinal else {}
+    return {
+        "notice": (
+            "Longitudinal analysis is derived from observed captures: how "
+            "posture, findings, and configurations changed across "
+            "observations. Drift does not prove causality. Finding absence "
+            "in one capture does not prove global remediation. Repeated "
+            "findings do not prove malicious activity. Posture changes do "
+            "not prove that a particular action caused the change."
+        ),
+        "baseline": longitudinal.get("baseline", {}) if longitudinal else {},
+        "observations": list(longitudinal.get("observations", [])) if longitudinal else [],
+        "posture_trend": list(longitudinal.get("posture_trend", [])) if longitudinal else [],
+        "comparisons": list(longitudinal.get("comparisons", [])) if longitudinal else [],
+        "drift": list(longitudinal.get("drift", [])) if longitudinal else [],
+        "drift_summary": summary,
     }
 
 

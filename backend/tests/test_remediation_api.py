@@ -4,7 +4,7 @@ Covers the engine comparison (VERIFIED/FAILED/INCONCLUSIVE semantics,
 neutral statements, posture quoting), remediation CRUD, the explicit
 state machine, ownership metadata, the remediation timeline, finding
 integration, evidence and manual verification, report/export/import
-integration (schema 1.2 with 1.0/1.1 compatibility), security
+integration (current schema with 1.0/1.1 compatibility), security
 validation, and the critical integrity guarantee: workflow state never
 mutates forensic truth.
 """
@@ -736,7 +736,7 @@ class TestRemediationReports:
         assert pdf.startswith(b"%PDF-")
 
         export = client.get(f"/api/cases/{case['case_id']}/export").json()
-        assert export["schema_version"] == "1.2"
+        assert export["schema_version"] == "1.3"
         assert len(export["remediations"]) == 1
         assert len(export["remediation_timeline"]) >= 3
         assert len(export["verification_results"]) == 1

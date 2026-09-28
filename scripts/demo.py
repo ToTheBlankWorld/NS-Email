@@ -1,8 +1,10 @@
-"""Deterministic demo workflow for SecureMailScope (Stage 10).
+"""Deterministic demo workflow for SecureMailScope (Stages 10-14).
 
 Loads the synthetic evaluation fixtures into an isolated demo storage,
-runs the full pipeline, asks the mock AI provider, and generates
-reports — entirely offline. Intended for reliable SIH demonstrations.
+runs the full pipeline, asks the mock AI provider, demonstrates the
+case/correlation/remediation workflows, then demonstrates longitudinal
+drift (baseline, verification, regression, posture trend) — entirely
+offline. Intended for reliable SIH demonstrations.
 
 Usage:
 
@@ -222,6 +224,7 @@ def _seed_demo_case(http, capture_ids: dict[str, str], summary: dict[str, object
 
     _demo_correlations(http, case_id, case_captures)
     _demo_remediation(http, case_id, capture_ids)
+    _demo_drift(http, summary)
 
     # Regenerate the report and export now that remediation workflow
     # state exists, so the bundle reflects the full demo.
@@ -332,6 +335,170 @@ def _demo_correlations(http, case_id: str, capture_ids: list[str]) -> None:
     )
     assert status == 200 and _json.loads(body)["status"] == "completed", body
     print("  correlation summary displayed; shared evidence inspected; mock AI queried")
+
+
+def _demo_drift(http, summary: dict[str, object]) -> None:
+    """Demonstrate the Stage 14 longitudinal workflow over the demo case.
+
+    Seeds three deterministic drift captures (A: TLS 1.0 findings,
+    B: TLS 1.2 clean, C: TLS 1.0 findings return), selects A as the
+    explicit baseline, verifies a remediation against B, then shows the
+    posture trend, a resolved finding (A->B), a recurring finding
+    (B->C), configuration drift, and the remediation regression — all
+    offline over the real API.
+    """
+    import json as _json
+
+    from scripts.drift_fixtures import load_drift_scenarios
+
+    boundary = "----nse-demo-drift"
+    scenarios = {s.scenario_id: s for s in load_drift_scenarios()}
+
+    def upload(scenario_id: str) -> str:
+        scenario = scenarios[scenario_id]
+        parts = [
+            (
+                f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
+                f'filename="{scenario.filename}"\r\n'
+                f"Content-Type: application/octet-stream\r\n\r\n"
+            ).encode(),
+            scenario.pcap,
+            f"\r\n--{boundary}--\r\n".encode(),
+        ]
+        status, body = http(
+            "POST",
+            "/api/captures",
+            b"".join(parts),
+            f"multipart/form-data; boundary={boundary}",
+        )
+        assert status in (200, 201), (status, body)
+        capture_id = _json.loads(body)["id"]
+        status, body = http("POST", f"/api/captures/{capture_id}/analyze")
+        assert status == 200, (status, body)
+        assert _json.loads(body)["status"] == "completed", body
+        return capture_id
+
+    # 1-3. Seed baseline capture, analyze, create case, attach baseline.
+    baseline_id = upload("drift-capture-a")
+    print(f"  drift baseline seeded -> {baseline_id}")
+    status, body = http(
+        "POST",
+        "/api/cases",
+        _json.dumps(
+            {
+                "title": "Demo longitudinal investigation",
+                "description": "Offline demonstration of security posture drift.",
+                "priority": "HIGH",
+            }
+        ).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    case_id = _json.loads(body)["case_id"]
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/captures",
+        _json.dumps({"capture_id": baseline_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+
+    # 4-5. Explicit baseline selection + remediation from the TLS finding.
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/observations/baseline",
+        _json.dumps({"capture_id": baseline_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    _, findings_body = http("GET", f"/api/captures/{baseline_id}/findings")
+    target = next(f for f in _json.loads(findings_body) if f["rule_id"] == "TLS-VERSION-001")
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/remediations/from-finding",
+        _json.dumps({"finding_id": target["id"], "owner": "netops"}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    remediation_id = _json.loads(body)["remediation_id"]
+    for next_status in ("PLANNED", "IN_PROGRESS"):
+        status, body = http(
+            "PATCH",
+            f"/api/cases/{case_id}/remediations/{remediation_id}",
+            _json.dumps({"status": next_status}).encode(),
+            "application/json",
+        )
+        assert status == 200, (status, body)
+
+    # 6-7. Seed verification capture, verify the remediation.
+    verification_id = upload("drift-capture-b")
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/captures",
+        _json.dumps({"capture_id": verification_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/remediations/{remediation_id}/verify",
+        _json.dumps({"mode": "evidence", "verification_capture_id": verification_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    assert _json.loads(body)["result"] == "VERIFIED", body[:200]
+    print(f"  drift remediation {remediation_id} verified against {verification_id}")
+
+    # 8-9. Seed regression capture, read longitudinal observations.
+    regression_id = upload("drift-capture-c")
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/captures",
+        _json.dumps({"capture_id": regression_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    status, body = http("GET", f"/api/cases/{case_id}/observations")
+    assert status == 200, (status, body)
+    observations = _json.loads(body)["observations"]
+    assert len(observations) == 3, body[:200]
+
+    # 10. Posture trend (quoted scores, no causal claims).
+    trend = [(o["capture_id"], o["posture_state"], o["posture_score"]) for o in observations]
+    print(
+        f"  posture trend: {trend[0][1]} ({trend[0][2]}) -> {trend[1][1]} ({trend[1][2]})"
+        f" -> {trend[2][1]} ({trend[2][2]})"
+    )
+
+    # 11-13. Resolved finding, recurring finding, configuration drift.
+    status, body = http("GET", f"/api/cases/{case_id}/drift/summary")
+    assert status == 200, (status, body)
+    drift_summary = _json.loads(body)
+    assert drift_summary["resolved_findings"] >= 1, body[:200]
+    assert drift_summary["recurring_findings"] >= 1, body[:200]
+    assert drift_summary["configuration_changes"] >= 1, body[:200]
+    print(
+        f"  resolved findings: {drift_summary['resolved_findings']}, "
+        f"recurring findings: {drift_summary['recurring_findings']}, "
+        f"configuration changes: {drift_summary['configuration_changes']}"
+    )
+
+    # 14. Remediation regression after previous verification.
+    status, body = http("GET", f"/api/cases/{case_id}/drift?type=finding_recurred")
+    assert status == 200, (status, body)
+    recurred = _json.loads(body)["drift"]
+    assert any(
+        d["regression_after_verification"] and remediation_id in d["related_remediation_ids"]
+        for d in recurred
+    ), body[:200]
+    print("  regression detected after previous verification; remediation may require review")
+
+    # 15-16. Case report and bundle including longitudinal analysis.
+    for path in ("report.json", "report.html", "report.pdf", "export", "bundle"):
+        status, body = http("GET", f"/api/cases/{case_id}/{path}")
+        assert status == 200, (path, status, body[:200])
+    summary["drift_case"] = {"case_id": case_id, "observations": 3}
+    print(f"  seeded drift case -> {case_id}")
 
 
 def serve(storage_dir: Path, port: int) -> int:

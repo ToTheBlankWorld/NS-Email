@@ -10,13 +10,15 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 13 — remediation workflow and evidence-based verification.**
-> Findings now carry analyst-controlled remediation plans (statuses,
-> owners, due dates, policy-baseline guidance) with deterministic
-> verification against later captures: before/after evidence
-> comparison, quoted posture deltas, and manual analyst-asserted
-> verification. History is never rewritten — findings stay exactly as
-> observed.
+> **Status: Stage 14 — longitudinal security drift and regression analysis.**
+> Cases now answer how posture changed across observations: explicit
+> analyst-selected baselines, deterministic capture comparison
+> (posture, finding lifecycle, TLS/certificate/protocol/anomaly/
+> correlation dimensions), evidence-gated drift records with stable
+> ids, posture trends with quoted deltas, remediation regression
+> detection ("existing remediation may require review"), and
+> longitudinal case reports and exports. History is never rewritten —
+> drift is derived intelligence over immutable observations.
 > See [Development stages](#development-stages).
 
 ---
@@ -128,8 +130,9 @@ Dependencies are added only when a stage actually needs them.
 | 10    | Production hardening: deterministic evaluation, security regressions, limits, readiness, CI, demo | done |
 | 11    | Forensic case management: cases, analyst notes/tags/bookmarks, timeline, case reports, export/bundle, provenance | done |
 | 12    | Multi-capture correlation: shared-evidence relationships, investigation graph, session related-observations, report/export integration | done |
-| 13    | Remediation workflow: analyst plans, state machine, evidence-based verification, before/after comparison, report/export integration | **current** |
-| 14+   | Future work | planned |
+| 13    | Remediation workflow: analyst plans, state machine, evidence-based verification, before/after comparison, report/export integration | done |
+| 14    | Longitudinal drift: observation snapshots, explicit baselines, deterministic comparison, posture trend, finding lifecycle, regression detection, drift APIs/workspace/reports/exports | **current** |
+| 15+   | Future work | planned |
 
 Each stage lands as its own reviewed, tested commit.
 
@@ -214,6 +217,18 @@ Each stage lands as its own reviewed, tested commit.
   against an explicitly selected analyzed capture (VERIFIED/FAILED/INCONCLUSIVE
   with neutral statements), quoted posture before/after, and manual
   analyst-asserted verification. Findings are never mutated or deleted.
+- **Longitudinal drift (Stage 14)** — `GET /api/cases/{id}/observations` with
+  explicit baseline selection (`POST/GET/DELETE .../observations/baseline`),
+  consecutive-pair and analyst-chosen comparisons
+  (`GET/POST /api/cases/{id}/comparisons`), deterministic drift records
+  (`GET /api/cases/{id}/drift`, `/drift/summary`, `/drift/{id}`) with
+  `drift_<sha256…>` ids, posture trends quoting Stage 5 scores, finding
+  lifecycles (new/persistent/resolved/recurred/not_comparable), TLS/
+  certificate/protocol/anomaly/correlation change detection, remediation
+  regression views (`GET .../remediations/{id}/drift`), a case workspace
+  Drift tab, longitudinal report sections, and schema 1.3 exports. Drift is
+  derived from observed captures: it does not prove causality, and repeated
+  findings do not prove malicious activity.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis
   layers: packet source (pure-Python pcap/pcapng reader), flow grouping, stream reassembly,
   protocol detection, and per-protocol session reconstructors.

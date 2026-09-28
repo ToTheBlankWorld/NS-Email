@@ -81,6 +81,11 @@ export type CaseSummary = {
       failed: number;
       inconclusive: number;
     };
+    drift: {
+      observations: number;
+      baseline_capture_id: string | null;
+      drift_records: number;
+    };
   };
   captures: CaseCaptureCard[];
   reports: { report_id: string; format: string; generated_at: string }[];
@@ -648,6 +653,243 @@ export function listFindingRemediations(
 ): Promise<{ remediations: RemediationRecord[] }> {
   return request<{ remediations: RemediationRecord[] }>(
     `/api/cases/${encodeURIComponent(caseId)}/findings/${encodeURIComponent(findingId)}/remediations`,
+    { signal, cache: "no-store" },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Longitudinal security drift (Stage 14)
+// ---------------------------------------------------------------------------
+
+export type DriftFindingRule = {
+  rule_id: string;
+  severity: string | null;
+  title: string | null;
+  count: number;
+  finding_ids: string[];
+};
+
+export type DriftObservation = {
+  observation_id: string;
+  case_id: string;
+  capture_id: string;
+  analyzed: boolean;
+  analysis_status: string;
+  analyzed_at: string | null;
+  created_at: string | null;
+  posture_score: number | null;
+  posture_state: string | null;
+  session_count: number;
+  finding_rules: DriftFindingRule[];
+  protocols: string[];
+  tls_versions: string[];
+  cipher_suites: string[];
+  key_exchanges: string[];
+  anomaly_bands: Record<string, number> | null;
+};
+
+export type LifecycleRow = {
+  rule_id: string;
+  title: string | null;
+  baseline_present: boolean;
+  current_present: boolean;
+  lifecycle: "new" | "persistent" | "resolved" | "recurred" | "not_comparable";
+  severity: string | null;
+  baseline_finding_id: string | null;
+  latest_finding_id: string | null;
+  comparable: boolean;
+};
+
+export type DriftRecord = {
+  drift_id: string;
+  case_id: string;
+  drift_type: string;
+  evidence_key: string;
+  baseline_capture_id: string;
+  comparison_capture_id: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  evidence_refs: { capture_id?: string; finding_id?: string; session_id?: string }[];
+  related_finding_ids: string[];
+  related_remediation_ids: string[];
+  related_verification_ids: string[];
+  related_correlations: { correlation_type: string; evidence_key: string; correlation_id: string }[];
+  regression_after_verification: boolean;
+  statement: string;
+};
+
+export type ComparisonResult = {
+  baseline_capture_id: string;
+  comparison_capture_id: string;
+  previous_capture_id: string;
+  lifecycle_anchor_capture_id: string;
+  posture_before: { posture_state: string | null; overall_score: number | null };
+  posture_after: { posture_state: string | null; overall_score: number | null };
+  posture_delta_points: number | null;
+  posture_statement: string;
+  finding_lifecycle: LifecycleRow[];
+  tls_before: Record<string, unknown>;
+  tls_after: Record<string, unknown>;
+  certificates_before: Record<string, unknown>;
+  certificates_after: Record<string, unknown>;
+  protocols_before: string[];
+  protocols_after: string[];
+  anomaly_bands_before: Record<string, number> | null;
+  anomaly_bands_after: Record<string, number> | null;
+  drift_ids: string[];
+  drift?: DriftRecord[];
+};
+
+export type DriftSummary = {
+  case_id: string;
+  observations: number;
+  baseline_capture_id: string | null;
+  drift_count: number;
+  posture_changes: number;
+  new_findings: number;
+  resolved_findings: number;
+  recurring_findings: number;
+  configuration_changes: number;
+  anomaly_changes: number;
+  by_type: Record<string, number>;
+};
+
+export type PostureTrendPoint = {
+  capture_id: string;
+  analyzed_at: string | null;
+  posture_score: number | null;
+  posture_state: string | null;
+  score_change_points: number | null;
+};
+
+export type RemediationDriftView = {
+  case_id: string;
+  remediation_id: string;
+  rule_id: string;
+  status: string;
+  verification_status: string;
+  baseline_capture_id: string;
+  verification_captures: string[];
+  verifications: { verification_id: string; verification_capture_id: string | null; result: string; method: string }[];
+  later_observations: string[];
+  current_lifecycle: string;
+  current_present: boolean;
+  regression_detected: boolean;
+  related_drift_ids: string[];
+};
+
+export type DriftListParams = {
+  type?: string;
+  comparison_capture_id?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type DriftList = {
+  case_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  drift: DriftRecord[];
+};
+
+export function listObservations(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<{ case_id: string; observations: DriftObservation[] }> {
+  return request<{ case_id: string; observations: DriftObservation[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/observations`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function getBaseline(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<{ case_id: string; baseline_capture_id: string | null }> {
+  return request<{ case_id: string; baseline_capture_id: string | null }>(
+    `/api/cases/${encodeURIComponent(caseId)}/observations/baseline`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function setBaseline(
+  caseId: string,
+  captureId: string,
+): Promise<{ case_id: string; baseline_capture_id: string }> {
+  return request<{ case_id: string; baseline_capture_id: string }>(
+    `/api/cases/${encodeURIComponent(caseId)}/observations/baseline`,
+    { method: "POST", body: JSON.stringify({ capture_id: captureId }) },
+  );
+}
+
+export function clearBaseline(caseId: string): Promise<void> {
+  return request<void>(`/api/cases/${encodeURIComponent(caseId)}/observations/baseline`, {
+    method: "DELETE",
+  });
+}
+
+export function listDrift(
+  caseId: string,
+  params: DriftListParams = {},
+  signal?: AbortSignal,
+): Promise<DriftList> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return request<DriftList>(`/api/cases/${encodeURIComponent(caseId)}/drift${suffix}`, {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function getDriftSummary(caseId: string, signal?: AbortSignal): Promise<DriftSummary> {
+  return request<DriftSummary>(`/api/cases/${encodeURIComponent(caseId)}/drift/summary`, {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function getDrift(
+  caseId: string,
+  driftId: string,
+  signal?: AbortSignal,
+): Promise<DriftRecord> {
+  return request<DriftRecord>(
+    `/api/cases/${encodeURIComponent(caseId)}/drift/${encodeURIComponent(driftId)}`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function listComparisons(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<{ case_id: string; comparisons: ComparisonResult[] }> {
+  return request<{ case_id: string; comparisons: ComparisonResult[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/comparisons`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function comparePair(
+  caseId: string,
+  input: { baseline_capture_id?: string; comparison_capture_id: string },
+): Promise<ComparisonResult> {
+  return request<ComparisonResult>(`/api/cases/${encodeURIComponent(caseId)}/comparisons`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getRemediationDrift(
+  caseId: string,
+  remediationId: string,
+  signal?: AbortSignal,
+): Promise<RemediationDriftView> {
+  return request<RemediationDriftView>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}/drift`,
     { signal, cache: "no-store" },
   );
 }
