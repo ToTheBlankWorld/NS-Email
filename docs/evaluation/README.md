@@ -112,8 +112,32 @@ production-scale claims.
 python -m pip install -e ".[dev]"
 python -m pytest engine/tests backend/tests -q      # full test suite
 python -m scripts.evaluate --repeat 2               # ground-truth evaluation
+python -m scripts.evaluate_cases --repeat 2         # case workflow evaluation
 python -m scripts.benchmark --repeat 3              # performance baseline
 python -m scripts.demo --run-once                   # offline demo verification
 ```
 
 Machine-readable outputs land in `docs/evaluation/latest-*.json`.
+
+## 10. Case evaluation (Stage 11)
+
+`python -m scripts.evaluate_cases --repeat 2` builds one complete
+synthetic investigation — **"Mixed TLS Security Investigation"** over
+the `secure-tls12`, `deprecated-tls10`, and
+`plaintext-authentication` fixtures — and drives it through the real
+case API: case creation, capture attachment, ground-truth verification
+of findings/posture per capture, finding/session bookmarks, analyst
+notes, tags, timeline verification, case report generation
+(JSON/HTML/PDF), export determinism (identical apart from explicitly
+dynamic timestamps), bundle layout verification, and a final
+findings/posture/anomaly/graph integrity check proving the analyst
+workflow left forensic truth byte-identical.
+
+Case ids and timeline timestamps are random/wall-clock per run by
+design, so cross-run determinism compares evidence-derived output
+(finding rule sets, posture states, export structure) rather than
+identifiers. Like the capture evaluation, this verifies specified
+behavior over controlled fixtures — it does not measure real-world
+investigative efficacy, and case metadata never alters forensic
+conclusions (asserted by both the harness and the backend regression
+suite).

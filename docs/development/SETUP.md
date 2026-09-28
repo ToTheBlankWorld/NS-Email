@@ -238,6 +238,53 @@ plus the analyst workspaces: `/findings`, `/anomalies`, `/graph`, and
 `/sessions`. The evidence graph frontend uses `@xyflow/react` (React Flow).
 
 
+## Forensic cases (Stage 11)
+
+Cases organize one or more captures into an investigation and preserve
+analyst context. The workspace UI lives at `/cases` (list, create,
+bundle import) and `/cases/<case_id>` (overview, evidence, findings,
+anomalies, graph, notes, bookmarks, timeline, reports).
+
+```bash
+# Create a case
+curl -X POST http://127.0.0.1:8000/api/cases \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Mixed TLS investigation", "priority": "HIGH"}'
+
+# Attach a capture (reference only — no data is copied)
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/captures \
+  -H "Content-Type: application/json" \
+  -d '{"capture_id": "<capture_id>"}'
+
+# Analyst workflow metadata (never alters forensic evidence)
+curl http://127.0.0.1:8000/api/cases/<case_id>/summary
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/notes \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "finding", "target_id": "<finding_id>", "content": "Follow up."}'
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/tags \
+  -H "Content-Type: application/json" -d '{"tag": "tls"}'
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/bookmarks \
+  -H "Content-Type: application/json" \
+  -d '{"target_type": "finding", "target_id": "<finding_id>", "label": "root cause?"}'
+curl http://127.0.0.1:8000/api/cases/<case_id>/timeline
+
+# Case reporting, export, and reproducible bundles
+curl -OJ http://127.0.0.1:8000/api/cases/<case_id>/report.json
+curl -OJ http://127.0.0.1:8000/api/cases/<case_id>/report.html
+curl -OJ http://127.0.0.1:8000/api/cases/<case_id>/report.pdf
+curl -OJ http://127.0.0.1:8000/api/cases/<case_id>/export
+curl -OJ http://127.0.0.1:8000/api/cases/<case_id>/bundle
+# Bundle WITH raw evidence bytes (explicit opt-in only):
+curl -OJ "http://127.0.0.1:8000/api/cases/<case_id>/bundle?include_evidence=true"
+```
+
+Case notes are analyst-authored content: length-capped, escaped in
+reports, and never sent to the AI provider. There is no case-level
+security score — summaries and reports quote the per-capture posture
+snapshots verbatim. Provenance sections are labeled "Technical
+provenance metadata" and are not legal chain-of-custody claims.
+
+
 ## Hardening and evaluation (Stage 10)
 
 ### Resource limits
@@ -267,6 +314,7 @@ with an actionable, secret-free message.
 
 ```bash
 python -m scripts.evaluate --repeat 2       # ground-truth evaluation (exit 1 on regression)
+python -m scripts.evaluate_cases --repeat 2 # case workflow evaluation (exit 1 on regression)
 python -m scripts.benchmark --repeat 3      # performance baseline (synthetic fixtures)
 python -m scripts.demo                      # offline SIH demo (mock AI, real APIs)
 python -m scripts.demo --run-once           # CI-safe demo verification

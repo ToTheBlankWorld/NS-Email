@@ -208,6 +208,31 @@ state) and rendered by three renderers into JSON, standalone HTML, and
 structured PDF (fpdf2). AI observations appear only if validated and are
 always labeled as interpretive assistance.
 
+### Stage 11: forensic case management
+
+Cases (`backend/app/case_store.py`, `backend/app/services/cases.py`,
+`backend/app/routers/cases.py`) form an organizational layer above the
+analysis store. The data flow is one-way: the case service READS
+sessions, findings, posture snapshots, anomaly results, graph records,
+and AI history, and WRITES only case metadata — case records, capture
+references, analyst notes, tags, bookmarks, investigation-timeline
+events, and report history. No code path runs from case metadata back
+into analysis output.
+
+```
+CAPTURE → analysis (Stages 1-8, immutable) ─┐
+                                            ├─→ case workspace
+analyst notes/tags/bookmarks (Stage 11) ────┘        ↓
+                                              reports · export · bundle
+```
+
+New tables live in the same SQLite file as the registry (`cases`,
+`case_captures`, `case_notes`, `case_tags`, `case_bookmarks`,
+`case_timeline`, `case_reports`); existing tables are untouched. The
+frontend case workspace (`/cases`, `/cases/[caseId]`) links to existing
+evidence views instead of reimplementing them. Full rationale and
+boundaries: `docs/decisions/011-forensic-case-management.md`.
+
 ## Security boundaries
 
 - **Captures are untrusted input.** Parsing is read-only; extracted content is data, never
@@ -233,9 +258,12 @@ always labeled as interpretive assistance.
 | Variable                   | Default                 | Purpose                                        |
 | -------------------------- | ----------------------- | ---------------------------------------------- |
 | `NS_EMAIL_CORS_ORIGINS`    | `http://localhost:3000` | Comma-separated CORS allow-list                |
-| `NS_EMAIL_CAPTURE_STORAGE` | `data/captures`         | Capture evidence + registry root               |
+| `NS_EMAIL_CAPTURE_STORAGE` | `data/captures`         | Capture evidence, registry, and staging root   |
 | `NS_EMAIL_MAX_CAPTURE_BYTES` | `2147483648` (2 GiB)  | Upload size limit (capped by the engine ceiling) |
 | `NS_EMAIL_TSHARK_PATH`     | —                       | Explicit tshark binary path (else `PATH` lookup) |
+
+CORS allows `GET`, `POST`, `PATCH`, and `DELETE` (Stage 11 case API);
+origins remain an explicit allow-list.
 
 ## Repository layout
 

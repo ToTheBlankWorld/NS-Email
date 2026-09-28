@@ -72,6 +72,7 @@ def seed_demo(storage_dir: Path, port: int) -> dict[str, object]:
 
         summary: dict[str, object] = {"scenarios": [], "reports": []}
         boundary = "----nse-demo"
+        seeded_captures: list[str] = []
 
         for scenario in load_scenarios():
             parts = [
@@ -126,12 +127,98 @@ def seed_demo(storage_dir: Path, port: int) -> dict[str, object]:
                     "sessions": analysis["sessions_found"],
                 }
             )
+            seeded_captures.append(capture_id)
             print(f"  seeded {scenario.scenario_id} -> {capture_id}")
+
+        _seed_demo_case(http, seeded_captures, summary)
 
         return summary
     finally:
         server.should_exit = True
         thread.join(timeout=5)
+
+
+def _seed_demo_case(http, capture_ids: list[str], summary: dict[str, object]) -> None:
+    """Demonstrate the Stage 11 case workflow over the seeded captures.
+
+    Creates a case, attaches captures, reviews a finding, adds a
+    bookmark/note/tag, generates the case report, and exports the case
+    bundle — all offline over the real API.
+    """
+    import json as _json
+
+    assert capture_ids, "demo requires at least one seeded capture"
+    status, body = http(
+        "POST",
+        "/api/cases",
+        _json.dumps(
+            {
+                "title": "Demo TLS investigation",
+                "description": "Offline demonstration of case management.",
+                "priority": "HIGH",
+            }
+        ).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    case_id = _json.loads(body)["case_id"]
+
+    for capture_id in capture_ids[:2]:
+        status, body = http(
+            "POST",
+            f"/api/cases/{case_id}/captures",
+            _json.dumps({"capture_id": capture_id}).encode(),
+            "application/json",
+        )
+        assert status == 200, (status, body)
+
+    bookmarked = False
+    for capture_id in capture_ids:
+        _, findings_body = http("GET", f"/api/captures/{capture_id}/findings")
+        for finding in _json.loads(findings_body):
+            status, body = http(
+                "POST",
+                f"/api/cases/{case_id}/bookmarks",
+                _json.dumps(
+                    {
+                        "target_type": "finding",
+                        "target_id": finding["id"],
+                        "label": "demo bookmark",
+                    }
+                ).encode(),
+                "application/json",
+            )
+            assert status == 200, (status, body)
+            bookmarked = True
+            break
+        if bookmarked:
+            break
+    assert bookmarked, "demo requires at least one finding to bookmark"
+
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/notes",
+        _json.dumps(
+            {"target_type": "case", "target_id": case_id, "content": "Demo analyst note."}
+        ).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/tags",
+        _json.dumps({"tag": "demo"}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+
+    for path in ("report.json", "report.html", "report.pdf", "export", "bundle"):
+        status, body = http("GET", f"/api/cases/{case_id}/{path}")
+        assert status == 200, (path, status, body[:200])
+
+    summary["case"] = {"case_id": case_id, "captures": len(capture_ids[:2])}
+    print(f"  seeded demo case -> {case_id}")
 
 
 def serve(storage_dir: Path, port: int) -> int:

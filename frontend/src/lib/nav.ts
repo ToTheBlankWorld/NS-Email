@@ -1,6 +1,7 @@
 import {
   FileArchive,
   FileText,
+  FolderOpen,
   LayoutDashboard,
   Network,
   ShieldAlert,
@@ -36,6 +37,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Anomalies", href: "/anomalies", icon: ShieldQuestion, available: true },
       { label: "Evidence Graph", href: "/graph", icon: Network, available: true },
       { label: "Reports", href: "/reports", icon: FileText, available: true },
+      { label: "Cases", href: "/cases", icon: FolderOpen, available: true },
     ],
   },
 ];

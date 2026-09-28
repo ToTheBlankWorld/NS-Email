@@ -448,3 +448,57 @@ def _event_out(event: SessionEvent) -> SessionEventOut:
         packet_numbers=event.packet_numbers,
         detail=event.detail,
     )
+
+
+# ---------------------------------------------------------------------------
+# Forensic cases (Stage 11)
+# ---------------------------------------------------------------------------
+
+
+class CaseResponse(BaseModel):
+    """A forensic investigation case (analyst metadata, not evidence)."""
+
+    case_id: str
+    case_number: str
+    title: str
+    description: str
+    status: str
+    priority: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    closed_at: datetime | None = None
+    schema_version: str
+
+
+class CaseNoteResponse(BaseModel):
+    """Analyst-authored content attached to a case or evidence reference."""
+
+    note_id: str
+    case_id: str
+    target_type: str
+    target_id: str
+    content: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class CaseBookmarkResponse(BaseModel):
+    """A named reference from a case back to one evidence item."""
+
+    bookmark_id: str
+    case_id: str
+    target_type: str
+    target_id: str
+    label: str = ""
+    note: str = ""
+    created_at: datetime | None = None
+
+
+class CaseTimelineEntryResponse(BaseModel):
+    """One investigation event (what the analyst did, not packet truth)."""
+
+    entry_id: str
+    case_id: str
+    event_type: str
+    detail: dict[str, str] = Field(default_factory=dict)
+    created_at: datetime | None = None

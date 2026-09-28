@@ -12,11 +12,24 @@ from engine.ingestion.inspector import CaptureInspector, TsharkCaptureInspector
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.case_store import CaseStore
 from app.config import Settings, load_settings, validate_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
-from app.routers import ai, anomalies, captures, findings, graph, health, posture, reports, sessions
+from app.routers import (
+    ai,
+    anomalies,
+    captures,
+    cases,
+    findings,
+    graph,
+    health,
+    posture,
+    reports,
+    sessions,
+)
 from app.services.analysis import CaptureAnalysisService
+from app.services.cases import CaseService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
 from app.store import SQLiteSessionStore
@@ -67,10 +80,12 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
     storage = CaptureStorage(settings.capture_storage_dir)
     registry = SQLiteCaptureRegistry(storage.registry_path())
     store = SQLiteSessionStore(storage.registry_path())
+    case_store = CaseStore(storage.registry_path())
     policy = _load_policy(settings)
     app.state.capture_storage = storage
     app.state.capture_registry = registry
     app.state.session_store = store
+    app.state.case_store = case_store
     app.state.policy = policy
     app.state.ingestion_service = CaptureIngestionService(
         storage=storage,
@@ -88,6 +103,15 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
     app.state.analysis_service = analysis_service
     ai_provider = _resolve_ai_provider(settings)
     app.state.ai_service = _make_ai_service(ai_provider, analysis_service)
+    case_service = CaseService(
+        case_store=case_store,
+        registry=registry,
+        analysis=analysis_service,
+        storage=storage,
+        app_version=settings.app_version,
+    )
+    case_service.attach_ai_service(app.state.ai_service)
+    app.state.case_service = case_service
     app.state.settings = settings
 
 
@@ -114,12 +138,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.cors_origins),
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
     install_error_handlers(app)
     app.include_router(health.router)
     app.include_router(captures.router)
+    app.include_router(cases.router)
     app.include_router(sessions.router)
     app.include_router(findings.router)
     app.include_router(posture.router)
