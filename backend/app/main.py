@@ -12,7 +12,7 @@ from engine.ingestion.inspector import CaptureInspector, TsharkCaptureInspector
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import Settings, load_settings
+from app.config import Settings, load_settings, validate_settings
 from app.errors import install_error_handlers
 from app.registry import SQLiteCaptureRegistry
 from app.routers import ai, anomalies, captures, findings, graph, health, posture, reports, sessions
@@ -83,6 +83,7 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
         registry=registry,
         store=store,
         policy=policy,
+        max_graph_nodes=settings.max_graph_nodes,
     )
     app.state.analysis_service = analysis_service
     ai_provider = _resolve_ai_provider(settings)
@@ -92,7 +93,17 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
+    problems = validate_settings(settings)
+    if problems:
+        # Fail fast with actionable messages; secrets are never included.
+        raise RuntimeError("invalid configuration:\n- " + "\n- ".join(problems))
     logging.basicConfig(level=logging.INFO)
+    logger.info(
+        "configuration validated: provider=%s max_capture_bytes=%d max_graph_nodes=%d",
+        settings.ai_provider or "(ai disabled)",
+        settings.max_capture_bytes,
+        settings.max_graph_nodes,
+    )
     app = FastAPI(
         title="NS-Email",
         description=(

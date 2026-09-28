@@ -236,3 +236,48 @@ curl -OJ http://127.0.0.1:8000/api/captures/<capture_id>/report.pdf
 The frontend provides a Report Center at `/reports` for the same downloads,
 plus the analyst workspaces: `/findings`, `/anomalies`, `/graph`, and
 `/sessions`. The evidence graph frontend uses `@xyflow/react` (React Flow).
+
+
+## Hardening and evaluation (Stage 10)
+
+### Resource limits
+
+| Limit | Default | Configuration |
+| --- | --- | --- |
+| Max upload size | 2 GiB (engine ceiling) | `NS_EMAIL_MAX_CAPTURE_BYTES` |
+| Analysis packet guard | engine constant | aborts analysis with a controlled `failed` state |
+| Evidence-graph nodes | 50,000 | `NS_EMAIL_MAX_GRAPH_NODES` (graph omitted with explicit warning) |
+| AI context | 12,000 characters | fixed (Stage 8) |
+| Report findings | 500 | fixed (Stage 9) |
+| AI question length | 2,000 characters | fixed (Stage 8) |
+
+Exceeding a limit always produces a controlled state or error - evidence
+is never silently truncated.
+
+### Health and readiness
+
+- `GET /health` - process liveness.
+- `GET /ready` - verifies the database probe and the storage root. External
+  AI availability is deliberately not part of readiness.
+
+Configuration is validated at startup; invalid AI configuration fails fast
+with an actionable, secret-free message.
+
+### Evaluation, benchmark, demo
+
+```bash
+python -m scripts.evaluate --repeat 2       # ground-truth evaluation (exit 1 on regression)
+python -m scripts.benchmark --repeat 3      # performance baseline (synthetic fixtures)
+python -m scripts.demo                      # offline SIH demo (mock AI, real APIs)
+python -m scripts.demo --run-once           # CI-safe demo verification
+```
+
+### Docker
+
+```bash
+docker compose up --build   # backend on :8000, frontend on :3000
+```
+
+CI (`.github/workflows/ci.yml`) gates every change on: backend tests, ruff,
+format, strict mypy, the deterministic evaluation suite, demo verification,
+and frontend typecheck/lint/build. CI uses the mock AI provider only.

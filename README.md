@@ -10,7 +10,7 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 9 — analyst workstation and forensic reporting.**
+> **Status: Stage 10 — production hardening and forensic evaluation.**
 > The platform now ships a complete analyst workstation: capture forensic
 > dashboards, findings/anomaly workspaces, an interactive evidence graph,
 > a session investigation view with the AI analyst, and deterministic
@@ -122,8 +122,9 @@ Dependencies are added only when a stage actually needs them.
 | 6     | TLS behavioral anomaly detection (IsolationForest over session features) | done |
 | 7     | Forensic evidence graph and investigation intelligence | done |
 | 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | done |
-| 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | **current** |
-| 10+   | Hardening, performance depth | planned |
+| 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | done |
+| 10    | Production hardening: deterministic evaluation, security regressions, limits, readiness, CI, demo | **current** |
+| 11+   | Future work | planned |
 
 Each stage lands as its own reviewed, tested commit.
 

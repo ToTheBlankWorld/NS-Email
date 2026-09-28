@@ -100,8 +100,16 @@ def make_api_fixture(tmp_path: Path) -> Callable[..., TestClient]:
         inspector: Any | None = None,
         max_capture_bytes: int = MAX_CAPTURE_SIZE_BYTES,
         ai_provider: str = "",
+        max_graph_nodes: int = 50_000,
     ) -> TestClient:
-        app = create_app(_isolated_settings(tmp_path, max_capture_bytes, ai_provider=ai_provider))
+        app = create_app(
+            _isolated_settings(
+                tmp_path,
+                max_capture_bytes,
+                ai_provider=ai_provider,
+                max_graph_nodes=max_graph_nodes,
+            )
+        )
         app.state.ingestion_service = CaptureIngestionService(
             storage=app.state.capture_storage,
             registry=app.state.capture_registry,
@@ -114,7 +122,10 @@ def make_api_fixture(tmp_path: Path) -> Callable[..., TestClient]:
 
 
 def _isolated_settings(
-    tmp_path: Path, max_capture_bytes: int = MAX_CAPTURE_SIZE_BYTES, ai_provider: str = ""
+    tmp_path: Path,
+    max_capture_bytes: int = MAX_CAPTURE_SIZE_BYTES,
+    ai_provider: str = "",
+    max_graph_nodes: int = 50_000,
 ) -> Settings:
     return Settings(
         service_name="ns-email",
@@ -122,5 +133,6 @@ def _isolated_settings(
         cors_origins=DEFAULT_CORS_ORIGINS,
         capture_storage_dir=tmp_path / "captures",
         max_capture_bytes=max_capture_bytes,
+        max_graph_nodes=max_graph_nodes,
         ai_provider=ai_provider,
     )

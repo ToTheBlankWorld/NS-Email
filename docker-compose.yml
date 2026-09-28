@@ -1,0 +1,34 @@
+# Reproducible two-container deployment for evaluation and demonstration.
+# Security: no secrets are required for the default mock-AI demo; provide
+# AI credentials via an .env file only if an external provider is wanted.
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      NS_EMAIL_CAPTURE_STORAGE: /data/captures
+      NS_EMAIL_AI_PROVIDER: mock
+    ports:
+      - "8000:8000"
+    volumes:
+      - capture-data:/data/captures
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  capture-data:

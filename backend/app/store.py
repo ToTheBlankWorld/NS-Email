@@ -529,6 +529,15 @@ class SQLiteSessionStore:
         finally:
             connection.close()
 
+    def ping(self) -> bool:
+        """Cheap database probe for the readiness endpoint."""
+        try:
+            with self._session() as connection:
+                connection.execute("SELECT 1").fetchone()
+            return True
+        except sqlite3.Error:
+            return False
+
     def replace_for_capture(self, capture_id: str, sessions: list[Session]) -> None:
         """Atomically replace all analysis results for one capture."""
         try:

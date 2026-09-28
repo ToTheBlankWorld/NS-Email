@@ -1,0 +1,1459 @@
+{
+  "determinism_repeat": 1,
+  "failed": 0,
+  "passed": 15,
+  "results": [
+    {
+      "capture_id": "capture_b79cef77c9f0",
+      "checks": [
+        {
+          "actual": "imap",
+          "check": "protocol",
+          "expected": "imap",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.3",
+          "check": "tls_version",
+          "expected": "TLS 1.3",
+          "passed": true
+        },
+        {
+          "actual": "TLS_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "tls13",
+          "check": "key_exchange",
+          "expected": "tls13",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "(none)",
+          "check": "rule_ids_exact",
+          "expected": "(none)",
+          "passed": true
+        },
+        {
+          "actual": "healthy",
+          "check": "posture_state",
+          "expected": "healthy",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+host+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol",
+          "passed": true
+        }
+      ],
+      "description": "Implicit-TLS IMAP session negotiating TLS 1.3 with an AEAD suite. Expected: no policy findings; posture healthy.",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 0,
+        "cipher_suite": "TLS_AES_128_GCM_SHA256",
+        "graph_edges": 12,
+        "graph_nodes": 10,
+        "key_exchange": "tls13",
+        "posture_score": 100,
+        "posture_state": "healthy",
+        "protocol": "imap",
+        "rules_fired": [],
+        "sessions": 1,
+        "tls_version": "TLS 1.3"
+      },
+      "passed": true,
+      "scenario_id": "secure-tls13",
+      "title": "Secure TLS 1.3 session (IMAPS)"
+    },
+    {
+      "capture_id": "capture_e4b6b95251b1",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "check": "certificate_count",
+          "expected": "2",
+          "passed": true
+        },
+        {
+          "actual": "(none)",
+          "check": "rule_ids_exact",
+          "expected": "(none)",
+          "passed": true
+        },
+        {
+          "actual": "healthy",
+          "check": "posture_state",
+          "expected": "healthy",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+host+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "STARTTLS upgrade to TLS 1.2 with an ECDHE AEAD suite and an observed issuer. Expected: no policy findings; posture healthy.",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 0,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 22,
+        "graph_nodes": 20,
+        "key_exchange": "ecdhe",
+        "posture_score": 100,
+        "posture_state": "healthy",
+        "protocol": "smtp",
+        "rules_fired": [],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "secure-tls12",
+      "title": "TLS 1.2 secure configuration (STARTTLS)"
+    },
+    {
+      "capture_id": "capture_cdb16c8544fb",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.0",
+          "check": "tls_version",
+          "expected": "TLS 1.0",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-CHAIN-001,CIPHER-SELECTED-001,TLS-VERSION-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-CHAIN-001,CIPHER-SELECTED-001,TLS-VERSION-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "low",
+          "check": "severity:CIPHER-SELECTED-001",
+          "expected": "low",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:TLS-VERSION-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "degraded",
+          "check": "posture_state",
+          "expected": "degraded",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "STARTTLS session negotiating TLS 1.0 with an ECDHE CBC suite. Expected: TLS-VERSION-001 (high) and CIPHER-SELECTED-001 (low).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+        "graph_edges": 31,
+        "graph_nodes": 23,
+        "key_exchange": "ecdhe",
+        "posture_score": 74,
+        "posture_state": "degraded",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-CHAIN-001",
+          "CIPHER-SELECTED-001",
+          "TLS-VERSION-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.0"
+      },
+      "passed": true,
+      "scenario_id": "deprecated-tls10",
+      "title": "Deprecated TLS 1.0 negotiation"
+    },
+    {
+      "capture_id": "capture_71dec1168ce7",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+          "check": "cipher_suite",
+          "expected": "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+          "passed": true
+        },
+        {
+          "actual": "rsa",
+          "check": "key_exchange",
+          "expected": "rsa",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "check": "certificate_count",
+          "expected": "2",
+          "passed": true
+        },
+        {
+          "actual": "CIPHER-SELECTED-001,KEYEX-001",
+          "check": "rule_ids_exact",
+          "expected": "CIPHER-SELECTED-001,KEYEX-001",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:CIPHER-SELECTED-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:KEYEX-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session selecting TLS_RSA_WITH_3DES_EDE_CBC_SHA. Expected: CIPHER-SELECTED-001 (medium) and KEYEX-001 (medium).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+        "graph_edges": 29,
+        "graph_nodes": 23,
+        "key_exchange": "rsa",
+        "posture_score": 85,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CIPHER-SELECTED-001",
+          "KEYEX-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "weak-cipher-3des",
+      "title": "3DES cipher with static RSA key exchange"
+    },
+    {
+      "capture_id": "capture_1d459d98a181",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-CHAIN-001,CERT-VALIDITY-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-CHAIN-001,CERT-VALIDITY-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:CERT-VALIDITY-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session with a leaf certificate whose validity ended 2024-06-01, before the 2024-09-27 capture instant. Expected: CERT-VALIDITY-001 (high).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 28,
+        "graph_nodes": 22,
+        "key_exchange": "ecdhe",
+        "posture_score": 75,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-CHAIN-001",
+          "CERT-VALIDITY-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "expired-certificate",
+      "title": "Certificate expired at capture time"
+    },
+    {
+      "capture_id": "capture_de84cec2fa39",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-CHAIN-001,CERT-SIG-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-CHAIN-001,CERT-SIG-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:CERT-SIG-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session whose leaf certificate is signed with SHA-1. Expected: CERT-SIG-001 (high).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 28,
+        "graph_nodes": 22,
+        "key_exchange": "ecdhe",
+        "posture_score": 75,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-CHAIN-001",
+          "CERT-SIG-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "sha1-certificate",
+      "title": "SHA-1 signed certificate"
+    },
+    {
+      "capture_id": "capture_f5203f792578",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-CHAIN-001,CERT-KEY-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-CHAIN-001,CERT-KEY-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:CERT-KEY-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session whose leaf certificate uses a 1024-bit RSA key, below the 2048-bit policy minimum. Expected: CERT-KEY-001 (high).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 28,
+        "graph_nodes": 22,
+        "key_exchange": "ecdhe",
+        "posture_score": 75,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-CHAIN-001",
+          "CERT-KEY-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "weak-certificate-key",
+      "title": "1024-bit RSA certificate key"
+    },
+    {
+      "capture_id": "capture_2896faa5e343",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-CHAIN-001,CERT-IDENTITY-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-CHAIN-001,CERT-IDENTITY-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:CERT-IDENTITY-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session where SNI mail.example.org does not match the certificate SAN other.example.org. Expected: CERT-IDENTITY-001 (high).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 28,
+        "graph_nodes": 22,
+        "key_exchange": "ecdhe",
+        "posture_score": 75,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-CHAIN-001",
+          "CERT-IDENTITY-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "san-mismatch",
+      "title": "Certificate does not cover the requested hostname"
+    },
+    {
+      "capture_id": "capture_4095604c65a4",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "certificate_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "CERT-SELF-SIGNED-001",
+          "check": "rule_ids_exact",
+          "expected": "CERT-SELF-SIGNED-001",
+          "passed": true
+        },
+        {
+          "actual": "low",
+          "check": "severity:CERT-SELF-SIGNED-001",
+          "expected": "low",
+          "passed": true
+        },
+        {
+          "actual": "healthy",
+          "check": "posture_state",
+          "expected": "healthy",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate",
+          "passed": true
+        }
+      ],
+      "description": "TLS 1.2 session whose leaf certificate is its own issuer with a matching SAN. Expected: CERT-SELF-SIGNED-001 (low).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 25,
+        "graph_nodes": 21,
+        "key_exchange": "ecdhe",
+        "posture_score": 95,
+        "posture_state": "healthy",
+        "protocol": "smtp",
+        "rules_fired": [
+          "CERT-SELF-SIGNED-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "self-signed-certificate",
+      "title": "Self-signed certificate presented"
+    },
+    {
+      "capture_id": "capture_fe1769662f21",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "PLAINTEXT-001,STARTTLS-001",
+          "check": "rule_ids_exact",
+          "expected": "PLAINTEXT-001,STARTTLS-001",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:PLAINTEXT-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:STARTTLS-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "anomaly:none_flagged",
+          "expected": "no flagged sessions",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+finding+host+posture_factor+protocol+session+timeline_event",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol",
+          "passed": true
+        }
+      ],
+      "description": "Server advertises STARTTLS, client requests it, server refuses with 454 and the session stays plaintext. Expected: STARTTLS-001 (medium) and PLAINTEXT-001 (medium).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": null,
+        "graph_edges": 25,
+        "graph_nodes": 20,
+        "key_exchange": null,
+        "posture_score": 85,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "PLAINTEXT-001",
+          "STARTTLS-001"
+        ],
+        "sessions": 1,
+        "tls_version": null
+      },
+      "passed": true,
+      "scenario_id": "starttls-requested-not-accepted",
+      "title": "STARTTLS requested but refused (454)"
+    },
+    {
+      "capture_id": "capture_748a5a673d81",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "PLAINTEXT-001",
+          "check": "rule_ids_exact",
+          "expected": "PLAINTEXT-001",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:PLAINTEXT-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "acceptable",
+          "check": "posture_state",
+          "expected": "acceptable",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "anomaly:none_flagged",
+          "expected": "no flagged sessions",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+finding+host+posture_factor+protocol+session+timeline_event",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol",
+          "passed": true
+        }
+      ],
+      "description": "A full SMTP conversation where STARTTLS is never offered or attempted. Expected: PLAINTEXT-001 (medium).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": null,
+        "graph_edges": 19,
+        "graph_nodes": 16,
+        "key_exchange": null,
+        "posture_score": 88,
+        "posture_state": "acceptable",
+        "protocol": "smtp",
+        "rules_fired": [
+          "PLAINTEXT-001"
+        ],
+        "sessions": 1,
+        "tls_version": null
+      },
+      "passed": true,
+      "scenario_id": "plaintext-smtp",
+      "title": "Plaintext SMTP session without TLS"
+    },
+    {
+      "capture_id": "capture_8d7e173cbff1",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "AUTH-PLAINTEXT-001,PLAINTEXT-001",
+          "check": "rule_ids_exact",
+          "expected": "AUTH-PLAINTEXT-001,PLAINTEXT-001",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:AUTH-PLAINTEXT-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:PLAINTEXT-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "degraded",
+          "check": "posture_state",
+          "expected": "degraded",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "anomaly:none_flagged",
+          "expected": "no flagged sessions",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+finding+host+posture_factor+protocol+session+timeline_event",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol",
+          "passed": true
+        }
+      ],
+      "description": "An SMTP session performing AUTH LOGIN in plaintext (synthetic credentials). Expected: AUTH-PLAINTEXT-001 (high) and PLAINTEXT-001 (medium).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": null,
+        "graph_edges": 29,
+        "graph_nodes": 24,
+        "key_exchange": null,
+        "posture_score": 63,
+        "posture_state": "degraded",
+        "protocol": "smtp",
+        "rules_fired": [
+          "AUTH-PLAINTEXT-001",
+          "PLAINTEXT-001"
+        ],
+        "sessions": 1,
+        "tls_version": null
+      },
+      "passed": true,
+      "scenario_id": "plaintext-authentication",
+      "title": "Credentials transmitted in plaintext"
+    },
+    {
+      "capture_id": "capture_303d510ac945",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "1",
+          "check": "session_count",
+          "expected": "1",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "False",
+          "check": "handshake_complete",
+          "expected": "False",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "TLS-FAILURE-001",
+          "check": "rule_ids_exact",
+          "expected": "TLS-FAILURE-001",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:TLS-FAILURE-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "healthy",
+          "check": "posture_state",
+          "expected": "healthy",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+finding+host+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake",
+          "passed": true
+        }
+      ],
+      "description": "STARTTLS accepted, ClientHello and ServerHello observed, then the stream ends before any CCS/application data. Expected: TLS-FAILURE-001 (info).",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 1,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 23,
+        "graph_nodes": 19,
+        "key_exchange": "ecdhe",
+        "posture_score": 100,
+        "posture_state": "healthy",
+        "protocol": "smtp",
+        "rules_fired": [
+          "TLS-FAILURE-001"
+        ],
+        "sessions": 1,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "incomplete-tls-handshake",
+      "title": "TLS handshake aborted after ServerHello"
+    },
+    {
+      "capture_id": "capture_3ba2094dcf79",
+      "checks": [
+        {
+          "actual": "imap",
+          "check": "protocol",
+          "expected": "imap",
+          "passed": true
+        },
+        {
+          "actual": "10",
+          "check": "session_count",
+          "expected": "10",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "0",
+          "check": "certificate_count",
+          "expected": "0",
+          "passed": true
+        },
+        {
+          "actual": "(none)",
+          "check": "rule_ids_exact",
+          "expected": "(none)",
+          "passed": true
+        },
+        {
+          "actual": "healthy",
+          "check": "posture_state",
+          "expected": "healthy",
+          "passed": true
+        },
+        {
+          "actual": "top=highly_anomalous; baselines_ok=True",
+          "check": "anomaly:outlier_flagged",
+          "expected": "outlier flagged unusual+, baselines normal",
+          "passed": true
+        },
+        {
+          "actual": "capture+endpoint+host+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake",
+          "passed": true
+        }
+      ],
+      "description": "Ten implicit-TLS IMAP sessions: nine identical baselines and one session with an order-of-magnitude larger transfer. Expected: the outlier is flagged unusual or beyond; baselines stay normal.",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 0,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 93,
+        "graph_nodes": 55,
+        "key_exchange": "ecdhe",
+        "posture_score": 100,
+        "posture_state": "healthy",
+        "protocol": "imap",
+        "rules_fired": [],
+        "sessions": 10,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "tls-anomaly-outlier",
+      "title": "TLS behavioral anomaly (capture-local baseline)"
+    },
+    {
+      "capture_id": "capture_d04cc1841d27",
+      "checks": [
+        {
+          "actual": "smtp",
+          "check": "protocol",
+          "expected": "smtp",
+          "passed": true
+        },
+        {
+          "actual": "4",
+          "check": "session_count",
+          "expected": "4",
+          "passed": true
+        },
+        {
+          "actual": "TLS 1.2",
+          "check": "tls_version",
+          "expected": "TLS 1.2",
+          "passed": true
+        },
+        {
+          "actual": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "check": "cipher_suite",
+          "expected": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+          "passed": true
+        },
+        {
+          "actual": "ecdhe",
+          "check": "key_exchange",
+          "expected": "ecdhe",
+          "passed": true
+        },
+        {
+          "actual": "True",
+          "check": "handshake_complete",
+          "expected": "True",
+          "passed": true
+        },
+        {
+          "actual": "2",
+          "check": "certificate_count",
+          "expected": "2",
+          "passed": true
+        },
+        {
+          "actual": "AUTH-PLAINTEXT-001,CERT-CHAIN-001,CIPHER-SELECTED-001,PLAINTEXT-001,TLS-VERSION-001",
+          "check": "rule_ids_exact",
+          "expected": "AUTH-PLAINTEXT-001,CERT-CHAIN-001,CIPHER-SELECTED-001,PLAINTEXT-001,TLS-VERSION-001",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:AUTH-PLAINTEXT-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "info",
+          "check": "severity:CERT-CHAIN-001",
+          "expected": "info",
+          "passed": true
+        },
+        {
+          "actual": "low",
+          "check": "severity:CIPHER-SELECTED-001",
+          "expected": "low",
+          "passed": true
+        },
+        {
+          "actual": "medium",
+          "check": "severity:PLAINTEXT-001",
+          "expected": "medium",
+          "passed": true
+        },
+        {
+          "actual": "high",
+          "check": "severity:TLS-VERSION-001",
+          "expected": "high",
+          "passed": true
+        },
+        {
+          "actual": "high_exposure",
+          "check": "posture_state",
+          "expected": "high_exposure",
+          "passed": true
+        },
+        {
+          "actual": "insufficient_evidence",
+          "check": "anomaly:insufficient_evidence",
+          "expected": "all evaluated sessions insufficient_evidence",
+          "passed": true
+        },
+        {
+          "actual": "capture+certificate+endpoint+finding+host+posture_factor+protocol+session+timeline_event+tls_configuration+tls_handshake",
+          "check": "graph_node_types",
+          "expected": "capture+host+endpoint+session+protocol+tls_handshake+certificate+finding",
+          "passed": true
+        }
+      ],
+      "description": "One capture with a secure TLS 1.2 session, a TLS 1.0 session, a plaintext session, and a plaintext-auth session. Expected: TLS-VERSION-001, CIPHER-SELECTED-001, PLAINTEXT-001 (x2), AUTH-PLAINTEXT-001, CERT-CHAIN-001; degraded/high-exposure posture.",
+      "deterministic": true,
+      "observed": {
+        "affected_sessions": 3,
+        "cipher_suite": "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "graph_edges": 96,
+        "graph_nodes": 69,
+        "key_exchange": "ecdhe",
+        "posture_score": 57,
+        "posture_state": "high_exposure",
+        "protocol": "smtp",
+        "rules_fired": [
+          "AUTH-PLAINTEXT-001",
+          "CERT-CHAIN-001",
+          "CIPHER-SELECTED-001",
+          "PLAINTEXT-001",
+          "TLS-VERSION-001"
+        ],
+        "sessions": 4,
+        "tls_version": "TLS 1.2"
+      },
+      "passed": true,
+      "scenario_id": "mixed-posture",
+      "title": "Mixed-posture capture (four sessions)"
+    }
+  ],
+  "schema_version": "1.0",
+  "total_scenarios": 15
+}

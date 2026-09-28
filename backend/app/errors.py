@@ -16,6 +16,7 @@ from engine.ingestion.errors import (
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger("ns_email.api")
 
@@ -79,6 +80,19 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(request: Request, error: Exception) -> JSONResponse:
         return _json(ERROR_INVALID_REQUEST, "request payload failed validation", 422)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(
+        request: Request, error: StarletteHTTPException
+    ) -> JSONResponse:
+        """Route unmatched requests through the structured error shape."""
+        code = {
+            404: "not_found",
+            405: "method_not_allowed",
+            413: "request_too_large",
+        }.get(error.status_code, ERROR_INVALID_REQUEST)
+        message = "resource not found" if error.status_code == 404 else "request rejected"
+        return _json(code, message, error.status_code)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, error: Exception) -> JSONResponse:

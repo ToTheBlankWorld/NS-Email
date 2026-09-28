@@ -1,0 +1,158 @@
+{
+  "machine": "win32",
+  "note": "Wall-clock timings on the development machine running the deterministic synthetic scenarios. These numbers are a regression baseline only \u2014 not throughput, capacity, or real-world performance claims.",
+  "python": "3.12.10",
+  "scenarios": [
+    {
+      "analysis_total_ms": 2.4,
+      "findings": 0,
+      "graph_edges": 12,
+      "graph_nodes": 10,
+      "packets": 9,
+      "runs": 3,
+      "scenario": "secure-tls13",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.7,
+      "findings": 0,
+      "graph_edges": 22,
+      "graph_nodes": 20,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "secure-tls12",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.6,
+      "findings": 3,
+      "graph_edges": 31,
+      "graph_nodes": 23,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "deprecated-tls10",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.7,
+      "findings": 2,
+      "graph_edges": 29,
+      "graph_nodes": 23,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "weak-cipher-3des",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.4,
+      "findings": 2,
+      "graph_edges": 28,
+      "graph_nodes": 22,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "expired-certificate",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.7,
+      "findings": 2,
+      "graph_edges": 28,
+      "graph_nodes": 22,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "sha1-certificate",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.4,
+      "findings": 2,
+      "graph_edges": 28,
+      "graph_nodes": 22,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "weak-certificate-key",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.4,
+      "findings": 2,
+      "graph_edges": 28,
+      "graph_nodes": 22,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "san-mismatch",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.3,
+      "findings": 1,
+      "graph_edges": 25,
+      "graph_nodes": 21,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "self-signed-certificate",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.1,
+      "findings": 2,
+      "graph_edges": 25,
+      "graph_nodes": 20,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "starttls-requested-not-accepted",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.2,
+      "findings": 1,
+      "graph_edges": 19,
+      "graph_nodes": 16,
+      "packets": 10,
+      "runs": 3,
+      "scenario": "plaintext-smtp",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.2,
+      "findings": 2,
+      "graph_edges": 29,
+      "graph_nodes": 24,
+      "packets": 16,
+      "runs": 3,
+      "scenario": "plaintext-authentication",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 2.6,
+      "findings": 1,
+      "graph_edges": 23,
+      "graph_nodes": 19,
+      "packets": 12,
+      "runs": 3,
+      "scenario": "incomplete-tls-handshake",
+      "sessions": 1
+    },
+    {
+      "analysis_total_ms": 82.6,
+      "findings": 0,
+      "graph_edges": 93,
+      "graph_nodes": 55,
+      "packets": 129,
+      "runs": 3,
+      "scenario": "tls-anomaly-outlier",
+      "sessions": 10
+    },
+    {
+      "analysis_total_ms": 5.1,
+      "findings": 5,
+      "graph_edges": 96,
+      "graph_nodes": 69,
+      "packets": 50,
+      "runs": 3,
+      "scenario": "mixed-posture",
+      "sessions": 4
+    }
+  ],
+  "schema_version": "1.0"
+}

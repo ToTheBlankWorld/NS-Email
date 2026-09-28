@@ -32,14 +32,15 @@ dependencies = [
   "cryptography>=42",
   "fastapi>=0.115",
   "fpdf2>=2.8",
+  "httpx>=0.27",
   "pydantic>=2.9",
   "python-multipart>=0.0.20",
+  "scikit-learn>=1.4",
   "uvicorn[standard]>=0.32",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.27",
   "mypy>=1.13",
   "pytest>=8.3",
   "ruff>=0.8",
@@ -89,6 +90,9 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = ["S101"]
 "engine/tests/**" = ["S101", "S105"]
+# Evaluation/demo/smoke scripts are verification tools: assert IS the
+# control flow, and urllib is used against the local demo server only.
+"scripts/**" = ["S101", "S310", "RUF005"]
 # S105: the credential constants in test_imap_pop3_sessions.py are synthetic
 # fixtures whose absence from API/DB/log output is exactly what is asserted.
 # The packet inspector launches tshark with fixed argument arrays (never a

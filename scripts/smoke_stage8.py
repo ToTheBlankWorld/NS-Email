@@ -8,7 +8,6 @@ Runs against a temporary database and storage directory. Verifies:
 
 import json
 import os
-import struct
 import sys
 import tempfile
 import time
@@ -40,8 +39,9 @@ def main() -> int:
     os.environ["NS_EMAIL_AI_PROVIDER"] = "mock"
     os.environ["NS_EMAIL_AI_MODEL"] = "mock-analyst"
 
-    from app.main import create_app  # noqa: E402
-    import uvicorn  # noqa: E402
+    import uvicorn
+
+    from app.main import create_app
 
     app = create_app()
     config = uvicorn.Config(app, host="127.0.0.1", port=8123, log_level="warning")
@@ -73,7 +73,8 @@ def main() -> int:
         boundary = "----smokeboundary"
         parts = [
             f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
-            f'filename="smtp_plain.pcap"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode(),
+            f'filename="smtp_plain.pcap"\r\n'
+            f"Content-Type: application/octet-stream\r\n\r\n".encode(),
             pcap,
             f"\r\n--{boundary}--\r\n".encode(),
         ]

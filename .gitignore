@@ -56,3 +56,6 @@ desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# Demo mode storage
+.demo/

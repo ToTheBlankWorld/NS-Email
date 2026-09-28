@@ -6,6 +6,7 @@ fails, the service reports the status without crashing the main pipeline.
 """
 
 import logging
+import time
 from typing import Any
 
 from engine.ai.context import build_ai_context
@@ -57,6 +58,13 @@ class AIAnalystService:
         if session is None:
             return {"status": "not_found", "error": "Session not found."}
 
+        logger.info(
+            "ai request started: session_id=%s provider=%s",
+            session_id,
+            self._provider.provider_name,
+        )
+        started = time.monotonic()
+
         findings = self._analysis.findings_for_session(session_id)
         anomaly = self._analysis.anomaly_for_session(session_id)
         all_sessions = self._analysis.sessions_for(session.capture_id)
@@ -98,12 +106,21 @@ class AIAnalystService:
             parsed = parse_llm_output(llm_response.text)
             validate_response(parsed, ai_context)
         except Exception as error:
-            logger.warning("AI response validation failed: %s", error)
+            logger.warning(
+                "ai response validation failed: session_id=%s error=%s", session_id, error
+            )
             return {
                 "status": "validation_failed",
                 "error": f"AI response failed validation: {error}",
                 "raw_text": llm_response.text[:500],
             }
+
+        logger.info(
+            "ai request completed: session_id=%s provider=%s status=completed duration_ms=%d",
+            session_id,
+            self._provider.provider_name,
+            int((time.monotonic() - started) * 1000),
+        )
 
         response = build_response(
             response_id=f"ai_{format(hash(session_id + question) & 0xFFFFFFFFFFFFFFFF, '012x')}",

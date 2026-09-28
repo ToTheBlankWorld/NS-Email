@@ -174,7 +174,7 @@ analysis with the real session count and protocol breakdown, a sessions table, a
 session detail view with a per-event timeline and TLS-boundary section. No fake
 statistics, findings, or AI output.
 
-The first nine stages of the pipeline are implemented; the rest is future work.
+The first ten stages of the pipeline are implemented; the rest is future work.
 
 ```
 PCAP / PCAPNG

@@ -6,6 +6,7 @@ status — a failed analysis is a result, not a crash.
 """
 
 import logging
+import time
 from typing import Any
 
 from engine.analysis import analyze_capture_packets
@@ -99,12 +100,14 @@ class CaptureAnalysisService:
         store: SessionStore,
         policy: Policy,
         anomaly_engine: AnomalyEngine | None = None,
+        max_graph_nodes: int = 50_000,
     ) -> None:
         self._storage = storage
         self._registry = registry
         self._store = store
         self._policy = policy
         self._anomaly_engine = anomaly_engine or AnomalyEngine()
+        self._max_graph_nodes = max_graph_nodes
 
     def analyze(self, capture_id: str) -> tuple[str, int]:
         """Run analysis for one capture; returns (status, session_count).
@@ -117,6 +120,7 @@ class CaptureAnalysisService:
         if capture is None:
             raise CaptureNotFoundError(capture_id)
 
+        started = time.monotonic()
         evidence_path = self._storage.evidence_path(capture.id, capture.format.value)
         if not evidence_path.is_file():
             raise CaptureStorageError("evidence file is missing from storage")
@@ -149,13 +153,28 @@ class CaptureAnalysisService:
             result.sessions, findings, anomaly_payload["anomalies"], posture
         )
         graph_nodes, graph_edges = graph_to_rows(graph)
-        self._store.replace_graph(capture.id, graph_nodes, graph_edges)
-        self._store.record_completed(capture.id, len(result.sessions), result.coverage_warnings)
+        warnings = list(result.coverage_warnings)
+        if len(graph_nodes) > self._max_graph_nodes:
+            # Controlled limit: keep the analysis, omit the graph, say so.
+            warnings.append(
+                f"evidence graph omitted: {len(graph_nodes)} nodes exceed the "
+                f"configured limit of {self._max_graph_nodes}"
+            )
+            logger.warning(
+                "graph for %s omitted: %d nodes exceed the limit of %d",
+                capture.id,
+                len(graph_nodes),
+                self._max_graph_nodes,
+            )
+        else:
+            self._store.replace_graph(capture.id, graph_nodes, graph_edges)
+        self._store.record_completed(capture.id, len(result.sessions), warnings)
         logger.info(
-            "analyzed %s: %d session(s), %d finding(s)",
+            "analysis completed: capture_id=%s sessions=%d findings=%d duration_ms=%d",
             capture.id,
             len(result.sessions),
             len(findings),
+            int((time.monotonic() - started) * 1000),
         )
         return ("completed", len(result.sessions))
 

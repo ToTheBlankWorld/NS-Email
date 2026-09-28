@@ -5,7 +5,9 @@ blobs. Every renderer consumes the same deterministic report document, so
 the three formats always agree.
 """
 
+import logging
 import re
+import time
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
@@ -21,6 +23,8 @@ from app.services.report_html import render_html_report
 from app.services.report_pdf import render_pdf_report
 
 router = APIRouter(prefix="/api/captures", tags=["reports"])
+
+logger = logging.getLogger("ns_email.reports")
 
 _CAPTURE_ID_PATTERN = re.compile(r"^capture_[0-9a-f]{12}$")
 
@@ -115,10 +119,18 @@ def _report_filename(capture_id: str, extension: str) -> str:
 
 @router.get("/{capture_id}/report.json", summary="Deterministic JSON forensic report")
 def get_json_report(capture_id: str, request: Request) -> Response:
+    started = time.monotonic()
     _require_capture_id(capture_id)
     document = _build_report_document(capture_id, request)
+    body = report_to_json(document)
+    logger.info(
+        "report generated: capture_id=%s format=json bytes=%d duration_ms=%d",
+        capture_id,
+        len(body),
+        int((time.monotonic() - started) * 1000),
+    )
     return Response(
-        content=report_to_json(document),
+        content=body,
         media_type="application/json",
         headers={
             "Content-Disposition": (
@@ -130,10 +142,18 @@ def get_json_report(capture_id: str, request: Request) -> Response:
 
 @router.get("/{capture_id}/report.html", summary="Standalone HTML forensic report")
 def get_html_report(capture_id: str, request: Request) -> Response:
+    started = time.monotonic()
     _require_capture_id(capture_id)
     document = _build_report_document(capture_id, request)
+    html = render_html_report(document)
+    logger.info(
+        "report generated: capture_id=%s format=html bytes=%d duration_ms=%d",
+        capture_id,
+        len(html),
+        int((time.monotonic() - started) * 1000),
+    )
     return Response(
-        content=render_html_report(document),
+        content=html,
         media_type="text/html; charset=utf-8",
         headers={
             "Content-Disposition": (
@@ -145,10 +165,18 @@ def get_html_report(capture_id: str, request: Request) -> Response:
 
 @router.get("/{capture_id}/report.pdf", summary="PDF forensic report")
 def get_pdf_report(capture_id: str, request: Request) -> Response:
+    started = time.monotonic()
     _require_capture_id(capture_id)
     document = _build_report_document(capture_id, request)
+    pdf = render_pdf_report(document)
+    logger.info(
+        "report generated: capture_id=%s format=pdf bytes=%d duration_ms=%d",
+        capture_id,
+        len(pdf),
+        int((time.monotonic() - started) * 1000),
+    )
     return Response(
-        content=render_pdf_report(document),
+        content=pdf,
         media_type="application/pdf",
         headers={
             "Content-Disposition": (f'attachment; filename="{_report_filename(capture_id, "pdf")}"')

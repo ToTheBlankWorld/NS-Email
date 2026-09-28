@@ -23,8 +23,9 @@ sys.path.insert(0, str(ROOT / "backend"))
 BASE = "http://127.0.0.1:8124"
 
 
-def http(method: str, path: str, body: bytes | None = None, ctype: str | None = None,
-         raw: bool = False):
+def http(
+    method: str, path: str, body: bytes | None = None, ctype: str | None = None, raw: bool = False
+):
     """Return (status, parsed-json-or-raw-bytes, content-type)."""
     req = urllib.request.Request(BASE + path, data=body, method=method)
     if ctype:
@@ -49,9 +50,9 @@ def main() -> int:
     os.environ["NS_EMAIL_CAPTURE_STORAGE"] = os.path.join(tmp, "storage")
     os.environ["NS_EMAIL_AI_PROVIDER"] = "mock"
 
-    from app.main import create_app  # noqa: E402
+    import uvicorn
 
-    import uvicorn  # noqa: E402
+    from app.main import create_app
 
     app = create_app()
     config = uvicorn.Config(app, host="127.0.0.1", port=8124, log_level="warning")
@@ -77,7 +78,9 @@ def main() -> int:
             f"\r\n--{boundary}--\r\n".encode(),
         ]
         status, created, _ = http(
-            "POST", "/api/captures", b"".join(parts),
+            "POST",
+            "/api/captures",
+            b"".join(parts),
             f"multipart/form-data; boundary={boundary}",
         )
         assert status == 201, (status, created)
@@ -91,10 +94,7 @@ def main() -> int:
         # -- 3-4. dashboard data: capture + posture ------------------------
         status, posture, _ = http("GET", f"/api/captures/{capture_id}/posture")
         assert status == 200 and posture["analysis_version"], (status, posture)
-        print(
-            f"[3] posture: state={posture['posture_state']} "
-            f"score={posture['overall_score']}"
-        )
+        print(f"[3] posture: state={posture['posture_state']} score={posture['overall_score']}")
 
         # -- 5-6. findings + anomalies --------------------------------------
         status, findings, _ = http("GET", f"/api/captures/{capture_id}/findings")
@@ -136,9 +136,17 @@ def main() -> int:
         assert status == 200 and ctype.startswith("application/json"), (status, ctype)
         report = json.loads(report_bytes)
         for section in (
-            "report", "capture", "executive_summary", "posture", "findings",
-            "anomalies", "tls_summary", "graph_summary", "ai_analyst",
-            "limitations", "methodology",
+            "report",
+            "capture",
+            "executive_summary",
+            "posture",
+            "findings",
+            "anomalies",
+            "tls_summary",
+            "graph_summary",
+            "ai_analyst",
+            "limitations",
+            "methodology",
         ):
             assert section in report, f"missing section {section}"
         assert report["ai_analyst"]["configured"] is True
@@ -148,23 +156,17 @@ def main() -> int:
             f"{report['executive_summary']['findings_total']} findings"
         )
 
-        status, report2_bytes, _ = http(
-            "GET", f"/api/captures/{capture_id}/report.json", raw=True
-        )
+        status, report2_bytes, _ = http("GET", f"/api/captures/{capture_id}/report.json", raw=True)
         assert report_bytes == report2_bytes, "JSON report must be deterministic"
         print("[10] JSON report deterministic")
 
-        status, html, ctype = http(
-            "GET", f"/api/captures/{capture_id}/report.html", raw=True
-        )
+        status, html, ctype = http("GET", f"/api/captures/{capture_id}/report.html", raw=True)
         assert status == 200 and ctype.startswith("text/html"), (status, ctype)
         html_text = html.decode("utf-8")
         assert "SecureMailScope" in html_text and "<script" not in html_text
         print("[11] HTML report OK (standalone, no inline scripts)")
 
-        status, pdf, ctype = http(
-            "GET", f"/api/captures/{capture_id}/report.pdf", raw=True
-        )
+        status, pdf, ctype = http("GET", f"/api/captures/{capture_id}/report.pdf", raw=True)
         assert status == 200 and ctype == "application/pdf", (status, ctype)
         assert pdf.startswith(b"%PDF-"), "not a PDF"
         assert len(pdf) > 2000
