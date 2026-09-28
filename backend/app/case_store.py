@@ -44,6 +44,7 @@ NOTE_TARGET_TYPES: tuple[str, ...] = (
     "finding",
     "anomaly",
     "graph_node",
+    "remediation",
 )
 
 # Evidence kinds a bookmark may reference. Bookmarks store references

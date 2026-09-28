@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CorrelationsTab } from "@/components/cases/correlations-tab";
+import { RemediationsTab } from "@/components/cases/remediations-tab";
 import {
   getGraph,
   listAnomalies,
@@ -29,6 +30,7 @@ import {
   caseReportUrl,
   createBookmark,
   createNote,
+  createRemediationFromFinding,
   deleteBookmark,
   deleteCase,
   deleteNote,
@@ -57,6 +59,7 @@ const TABS = [
   "anomalies",
   "graph",
   "correlations",
+  "remediations",
   "notes",
   "bookmarks",
   "timeline",
@@ -280,6 +283,9 @@ export function CaseWorkspace({ caseId, initialTab }: { caseId: string; initialT
               createBookmark(caseId, { target_type: "finding", target_id: findingId }),
             )
           }
+          onRemediate={(findingId) =>
+            runAction(() => createRemediationFromFinding(caseId, { finding_id: findingId }))
+          }
         />
       ) : null}
 
@@ -298,6 +304,15 @@ export function CaseWorkspace({ caseId, initialTab }: { caseId: string; initialT
 
       {tab === "correlations" ? (
         <CorrelationsTab
+          caseId={caseId}
+          captureIds={state.summary.captures
+            .filter((c) => c.available)
+            .map((c) => c.capture_id)}
+        />
+      ) : null}
+
+      {tab === "remediations" ? (
+        <RemediationsTab
           caseId={caseId}
           captureIds={state.summary.captures
             .filter((c) => c.available)
@@ -476,6 +491,14 @@ function OverviewTab({
               </div>
             ))}
           </dl>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Remediation workflow (counts, not scores): open {counts.remediations.open} ·
+            in progress {counts.remediations.in_progress} · blocked {counts.remediations.blocked}{" "}
+            · completed {counts.remediations.completed} · verification pending{" "}
+            {counts.remediations.verification_pending} · verified {counts.remediations.verified}{" "}
+            · failed {counts.remediations.failed} · inconclusive{" "}
+            {counts.remediations.inconclusive}.
+          </p>
         </CardContent>
       </Card>
 
@@ -596,9 +619,11 @@ function EvidenceTab({
 function FindingsTab({
   evidence,
   onBookmark,
+  onRemediate,
 }: {
   evidence: EvidenceCache | null;
   onBookmark: (findingId: string) => Promise<void>;
+  onRemediate: (findingId: string) => Promise<void>;
 }) {
   if (!evidence) return <p className="text-sm text-muted-foreground">Loading findings…</p>;
   if (evidence.findings.length === 0) return <p className="text-sm">No findings recorded.</p>;
@@ -630,6 +655,9 @@ function FindingsTab({
             </Button>
             <Button variant="outline" size="sm" onClick={() => void onBookmark(f.id)}>
               Bookmark
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => void onRemediate(f.id)}>
+              Remediate
             </Button>
           </div>
         ))}
@@ -964,7 +992,8 @@ function ReportsTab({
         <CardContent className="space-y-2 text-sm">
           <p className="text-xs text-muted-foreground">
             Reports quote authoritative per-capture evidence, include the derived correlation
-            section (shared evidence across captures — not attribution), and clearly separate
+            section (shared evidence across captures — not attribution), the remediation
+            workflow and verification evidence sections, and clearly separate
             analyst notes from AI interpretation. Tags on this case: {tags.join(", ") || "none"}.
           </p>
           <div className="flex flex-wrap gap-2">

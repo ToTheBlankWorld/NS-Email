@@ -243,13 +243,32 @@ per-key relationships, O(N + relationships)) emits a fixed ten-type
 vocabulary with `corr_<sha256(...)[:16]>` ids bound to the case; the
 backend serves them read-only and on-demand (list/summary/detail/
 context/session-related/investigation-graph) with bounded output.
-Reports and exports (schema 1.1) embed correlations; import accepts
-1.0/1.1 but always recomputes them locally. AI answers explicit
+Reports and exports (schema 1.2) embed correlations; import accepts
+1.0/1.1/1.2 but always recomputes them locally. AI answers explicit
 correlation questions from a minimized ephemeral context. One
 prerequisite persistence fix: `session_certificates` is keyed by
 `(id, session_id)` so identical certificates observed in different
 sessions no longer collapse. Full rationale and boundaries:
 `docs/decisions/012-multi-capture-correlation.md`.
+
+### Stage 13: remediation workflow
+
+Remediations (`backend/app/remediation_store.py`, `backend/app/
+services/remediations.py`, `backend/app/routers/remediations.py`)
+form a workflow layer over immutable findings: records with an
+explicit state machine (OPEN→PLANNED→IN_PROGRESS→COMPLETED,
+BLOCKED↔IN_PROGRESS, →CANCELLED), analyst ownership, an
+insertion-ordered per-remediation timeline, and append-only
+verification records. The deterministic verification engine
+(`engine/verification`) compares an original rule against an
+explicitly selected attached+analyzed capture (session matching by
+protocol + server endpoint; VERIFIED/FAILED/INCONCLUSIVE with neutral
+statements) and quotes Stage 5 posture before/after without
+recomputing it; manual verification is analyst notes labeled
+`analyst_asserted`. Reports/exports (schema 1.2) embed remediation
+and verification sections; import accepts 1.0/1.1/1.2 but resets
+verification state. No AI involvement in verification. Full rationale
+and boundaries: `docs/decisions/013-remediation-and-verification.md`.
 
 ## Security boundaries
 

@@ -10,13 +10,13 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 12 — multi-capture correlation and investigation intelligence.**
-> Cases with multiple captures now answer "what evidence is repeated
-> across this case?": deterministic shared-endpoint/host/certificate/
-> TLS-configuration/finding correlations with a case investigation
-> graph, session related-observations, and report/export integration.
-> Correlation is derived intelligence only — never attribution, never a
-> score, and never a mutation of forensic conclusions.
+> **Status: Stage 13 — remediation workflow and evidence-based verification.**
+> Findings now carry analyst-controlled remediation plans (statuses,
+> owners, due dates, policy-baseline guidance) with deterministic
+> verification against later captures: before/after evidence
+> comparison, quoted posture deltas, and manual analyst-asserted
+> verification. History is never rewritten — findings stay exactly as
+> observed.
 > See [Development stages](#development-stages).
 
 ---
@@ -127,8 +127,9 @@ Dependencies are added only when a stage actually needs them.
 | 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | done |
 | 10    | Production hardening: deterministic evaluation, security regressions, limits, readiness, CI, demo | done |
 | 11    | Forensic case management: cases, analyst notes/tags/bookmarks, timeline, case reports, export/bundle, provenance | done |
-| 12    | Multi-capture correlation: shared-evidence relationships, investigation graph, session related-observations, report/export integration | **current** |
-| 13+   | Future work | planned |
+| 12    | Multi-capture correlation: shared-evidence relationships, investigation graph, session related-observations, report/export integration | done |
+| 13    | Remediation workflow: analyst plans, state machine, evidence-based verification, before/after comparison, report/export integration | **current** |
+| 14+   | Future work | planned |
 
 Each stage lands as its own reviewed, tested commit.
 
@@ -206,6 +207,13 @@ Each stage lands as its own reviewed, tested commit.
   graph (`forensic` vs `correlation`); explicit ephemeral AI questions about one
   correlation. Deterministic index-based engine over structured evidence only —
   no attribution, no scores, no evidence mutation.
+- **Remediation (Stage 13)** — `POST /api/cases/{id}/remediations/from-finding`
+  (policy-baseline guidance preserved verbatim), explicit status state machine
+  (OPEN→PLANNED→IN_PROGRESS→COMPLETED, BLOCKED↔IN_PROGRESS, →CANCELLED), analyst
+  ownership, insertion-ordered remediation timeline, evidence-based verification
+  against an explicitly selected analyzed capture (VERIFIED/FAILED/INCONCLUSIVE
+  with neutral statements), quoted posture before/after, and manual
+  analyst-asserted verification. Findings are never mutated or deleted.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis
   layers: packet source (pure-Python pcap/pcapng reader), flow grouping, stream reassembly,
   protocol detection, and per-protocol session reconstructors.

@@ -42,6 +42,9 @@ jobs:
       - name: Correlation evaluation suite
         run: python -m scripts.evaluate_correlations --repeat 2
 
+      - name: Remediation evaluation suite
+        run: python -m scripts.evaluate_remediation --repeat 2
+
       - name: Demo workflow (offline, mock AI)
         run: python -m scripts.demo --run-once
 

@@ -71,6 +71,16 @@ export type CaseSummary = {
     tags: number;
     timeline_events: number;
     reports: number;
+    remediations: {
+      open: number;
+      in_progress: number;
+      blocked: number;
+      completed: number;
+      verification_pending: number;
+      verified: number;
+      failed: number;
+      inconclusive: number;
+    };
   };
   captures: CaseCaptureCard[];
   reports: { report_id: string; format: string; generated_at: string }[];
@@ -456,6 +466,190 @@ export async function queryCorrelationAI(
   });
   if (!response.ok) throw await parseCaseError(response);
   return (await response.json()) as CorrelationAIResult;
+}
+
+// ---------------------------------------------------------------------------
+// Remediation workflow (Stage 13)
+// ---------------------------------------------------------------------------
+
+export type RemediationRecord = {
+  remediation_id: string;
+  case_id: string;
+  target_type: string;
+  target_id: string;
+  rule_id: string | null;
+  title: string;
+  description: string;
+  recommended_action: string;
+  recommended_action_source: "policy" | "analyst";
+  status: string;
+  priority: string;
+  owner: string;
+  due_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  completed_at: string | null;
+  verification_status: string;
+  verification_capture_id: string | null;
+  verification_method: string | null;
+};
+
+export type RemediationTimelineEntry = {
+  entry_id: string;
+  remediation_id: string;
+  case_id: string;
+  event_type: string;
+  detail: Record<string, string>;
+  created_at: string | null;
+};
+
+export type VerificationRecord = {
+  verification_id: string;
+  remediation_id: string;
+  case_id: string;
+  method: string;
+  baseline_capture_id: string;
+  baseline_session_id: string | null;
+  rule_id: string;
+  verification_capture_id: string | null;
+  result: string;
+  comparison: Record<string, unknown>;
+  notes: string;
+  created_at: string | null;
+  completed_at: string | null;
+};
+
+export type RemediationListParams = {
+  status?: string;
+  priority?: string;
+  owner?: string;
+  verification?: string;
+  rule?: string;
+  target?: string;
+  search?: string;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type RemediationList = {
+  case_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  remediations: RemediationRecord[];
+};
+
+/** List remediations with workflow filters and sorting. */
+export function listRemediations(
+  caseId: string,
+  params: RemediationListParams = {},
+  signal?: AbortSignal,
+): Promise<RemediationList> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return request<RemediationList>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations${suffix}`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function getRemediation(
+  caseId: string,
+  remediationId: string,
+  signal?: AbortSignal,
+): Promise<RemediationRecord> {
+  return request<RemediationRecord>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function createRemediationFromFinding(
+  caseId: string,
+  input: { finding_id: string; title?: string; description?: string; priority?: string; owner?: string; due_at?: string },
+): Promise<RemediationRecord> {
+  return request<RemediationRecord>(`/api/cases/${encodeURIComponent(caseId)}/remediations/from-finding`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateRemediation(
+  caseId: string,
+  remediationId: string,
+  input: { title?: string; description?: string; recommended_action?: string; priority?: string; owner?: string; due_at?: string; status?: string },
+): Promise<RemediationRecord> {
+  return request<RemediationRecord>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export function deleteRemediation(caseId: string, remediationId: string): Promise<void> {
+  return request<void>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function listRemediationTimeline(
+  caseId: string,
+  remediationId: string,
+  signal?: AbortSignal,
+): Promise<{ timeline: RemediationTimelineEntry[] }> {
+  return request<{ timeline: RemediationTimelineEntry[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}/timeline`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function requestVerification(
+  caseId: string,
+  remediationId: string,
+  input: { mode: string; verification_capture_id?: string; notes?: string },
+): Promise<VerificationRecord> {
+  return request<VerificationRecord>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}/verify`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function listVerifications(
+  caseId: string,
+  remediationId: string,
+  signal?: AbortSignal,
+): Promise<{ verifications: VerificationRecord[] }> {
+  return request<{ verifications: VerificationRecord[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}/verification`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function completeVerification(
+  caseId: string,
+  remediationId: string,
+  verificationId: string,
+  notes: string,
+): Promise<VerificationRecord> {
+  return request<VerificationRecord>(
+    `/api/cases/${encodeURIComponent(caseId)}/remediations/${encodeURIComponent(remediationId)}/verifications/${encodeURIComponent(verificationId)}`,
+    { method: "PATCH", body: JSON.stringify({ notes }) },
+  );
+}
+
+export function listFindingRemediations(
+  caseId: string,
+  findingId: string,
+  signal?: AbortSignal,
+): Promise<{ remediations: RemediationRecord[] }> {
+  return request<{ remediations: RemediationRecord[] }>(
+    `/api/cases/${encodeURIComponent(caseId)}/findings/${encodeURIComponent(findingId)}/remediations`,
+    { signal, cache: "no-store" },
+  );
 }
 
 /** Deep-link a bookmark target back to its evidence view. */

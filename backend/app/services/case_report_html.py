@@ -95,6 +95,8 @@ def render_case_html_report(report: dict[str, Any]) -> str:
     case = report.get("case", {})
     evidence = report.get("evidence", {})
     correlation = report.get("correlation", {})
+    remediation = report.get("remediation", {})
+    verification = report.get("verification", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -238,6 +240,73 @@ def render_case_html_report(report: dict[str, Any]) -> str:
             ],
         )
     )
+    parts.append("</section>")
+
+    # Remediation workflow -------------------------------------------------
+    parts.append("<section><h2>Remediation Workflow</h2>")
+    parts.append(f'<p class="note">{_esc(remediation.get("notice"))}</p>')
+    parts.append(
+        _render_table(
+            ["Remediation", "Target", "Rule", "Status", "Priority", "Owner", "Verification"],
+            [
+                [
+                    _esc(r.get("remediation_id")),
+                    _esc(f"{r.get('target_type')}: {r.get('target_id')}"),
+                    _esc(r.get("rule_id")),
+                    _esc(r.get("status")),
+                    _esc(r.get("priority")),
+                    _esc(r.get("owner")),
+                    _esc(r.get("verification_status")),
+                ]
+                for r in remediation.get("remediations", [])
+            ],
+        )
+    )
+    parts.append("</section>")
+
+    # Verification evidence --------------------------------------------------
+    parts.append("<section><h2>Verification Evidence</h2>")
+    parts.append(f'<p class="note">{_esc(verification.get("notice"))}</p>')
+    parts.append(
+        _render_table(
+            ["Verification", "Method", "Rule", "Baseline", "Verification capture", "Result"],
+            [
+                [
+                    _esc(v.get("verification_id")),
+                    _esc(v.get("method")),
+                    _esc(v.get("rule_id")),
+                    _esc(v.get("baseline_capture_id")),
+                    _esc(v.get("verification_capture_id")),
+                    _esc(v.get("result")),
+                ]
+                for v in verification.get("results", [])
+            ],
+        )
+    )
+    for v in verification.get("results", []):
+        comparison = v.get("comparison", {})
+        if comparison.get("statement"):
+            parts.append(f"<h3>{_esc(v.get('verification_id'))}</h3>")
+            parts.append(f"<p>{_esc(comparison.get('statement'))}</p>")
+            posture_before = comparison.get("posture_before", {})
+            posture_after = comparison.get("posture_after", {})
+            parts.append(
+                _render_table(
+                    ["", "Posture state", "Score"],
+                    [
+                        [
+                            "Baseline",
+                            _esc(posture_before.get("posture_state")),
+                            _esc(posture_before.get("overall_score")),
+                        ],
+                        [
+                            "Verification",
+                            _esc(posture_after.get("posture_state")),
+                            _esc(posture_after.get("overall_score")),
+                        ],
+                    ],
+                )
+            )
     parts.append("</section>")
 
     # Analyst work -------------------------------------------------------

@@ -148,6 +148,8 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
     case = report.get("case", {})
     evidence = report.get("evidence", {})
     correlation = report.get("correlation", {})
+    remediation = report.get("remediation", {})
+    verification = report.get("verification", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -299,6 +301,51 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
         ],
         [52, 30, 30, 66],
     )
+
+    # Remediation workflow --------------------------------------------------------
+    _section_title(pdf, "Remediation Workflow")
+    _note(pdf, str(remediation.get("notice") or ""))
+    _table(
+        pdf,
+        ["Remediation", "Target", "Rule", "Status", "Verification"],
+        [
+            [
+                r.get("remediation_id"),
+                f"{r.get('target_type')}: {r.get('target_id')}",
+                r.get("rule_id"),
+                r.get("status"),
+                r.get("verification_status"),
+            ]
+            for r in remediation.get("remediations", [])
+        ],
+        [46, 62, 34, 28, 28],
+    )
+
+    # Verification evidence ---------------------------------------------------------
+    _section_title(pdf, "Verification Evidence")
+    _note(pdf, str(verification.get("notice") or ""))
+    _table(
+        pdf,
+        ["Verification", "Method", "Rule", "Result"],
+        [
+            [v.get("verification_id"), v.get("method"), v.get("rule_id"), v.get("result")]
+            for v in verification.get("results", [])
+        ],
+        [52, 40, 44, 42],
+    )
+    for v in verification.get("results", []):
+        comparison = v.get("comparison", {})
+        if comparison.get("statement"):
+            _sub_title(pdf, f"Verification {v.get('verification_id')}")
+            pdf.set_font("helvetica", "", 9.5)
+            pdf.multi_cell(
+                0,
+                5.5,
+                _clean(comparison.get("statement")),
+                new_x=XPos.LMARGIN,
+                new_y=YPos.NEXT,
+            )
+            pdf.ln(2)
 
     # Analyst work ------------------------------------------------------------
     pdf.add_page()

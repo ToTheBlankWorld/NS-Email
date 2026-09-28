@@ -18,7 +18,7 @@ import hashlib
 import io
 import json
 import zipfile
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from engine.ingestion.errors import CaptureStorageError
 
@@ -57,11 +57,21 @@ from app.services.case_report import (
 )
 from app.storage import CaptureStorage
 
-CASE_EXPORT_SCHEMA_VERSION = "1.1"
+if TYPE_CHECKING:
+    from app.services.correlations import CorrelationService
+    from app.services.remediations import RemediationService
+
+CASE_EXPORT_SCHEMA_VERSION = "1.2"
 CASE_EXPORT_SCHEMA_VERSION_1_0 = "1.0"
+CASE_EXPORT_SCHEMA_VERSION_1_1 = "1.1"
 #: Schema versions accepted on import. Correlations are always recomputed
-#: from local evidence, so 1.0 bundles (without correlations) import cleanly.
-SUPPORTED_IMPORT_SCHEMA_VERSIONS = (CASE_EXPORT_SCHEMA_VERSION, CASE_EXPORT_SCHEMA_VERSION_1_0)
+#: from local evidence, and verification state is always reset, so older
+#: bundles import cleanly.
+SUPPORTED_IMPORT_SCHEMA_VERSIONS = (
+    CASE_EXPORT_SCHEMA_VERSION,
+    CASE_EXPORT_SCHEMA_VERSION_1_1,
+    CASE_EXPORT_SCHEMA_VERSION_1_0,
+)
 CASE_BUNDLE_README_NAME = "README.txt"
 CASE_BUNDLE_CASE_NAME = "case.json"
 CASE_BUNDLE_MANIFEST_NAME = "evidence-manifest.json"
@@ -72,6 +82,7 @@ CASE_BUNDLE_REPORT_NAME = "reports/case-report.json"
 MAX_IMPORT_NOTES = 500
 MAX_IMPORT_BOOKMARKS = 500
 MAX_IMPORT_CAPTURES = 100
+MAX_IMPORT_REMEDIATIONS = 200
 
 # Reproducible bundles use a fixed archive timestamp so identical case
 # state yields byte-identical zips.
@@ -163,7 +174,8 @@ class CaseService:
         self._storage = storage
         self._app_version = app_version
         self._ai_service: Any = None
-        self._correlation_service: Any = None
+        self._correlation_service: CorrelationService | None = None
+        self._remediation_service: RemediationService | None = None
 
     # -- cases -----------------------------------------------------------
 
@@ -275,6 +287,11 @@ class CaseService:
             if self._analysis.anomaly_result(target_id) is None:
                 raise CaseValidationError("referenced anomaly does not exist")
             return
+        if target_type == "remediation":
+            service = self._remediation_service
+            if service is not None and not service.remediation_exists(case_id, target_id):
+                raise CaseValidationError("referenced remediation does not exist")
+            return
 
     # -- notes -----------------------------------------------------------
 
@@ -297,6 +314,8 @@ class CaseService:
             "note_created",
             {"note_id": note.note_id, "target_type": clean_type, "target_id": clean_target},
         )
+        if clean_type == "remediation" and self._remediation_service is not None:
+            self._remediation_service.record_note_added(record.case_id, clean_target, note.note_id)
         return note
 
     def list_notes(self, case_id: str) -> list[NoteRecord]:
@@ -455,6 +474,7 @@ class CaseService:
         tags = self._cases.list_tags(record.case_id)
         timeline = self._cases.list_timeline(record.case_id)
         reports = self._cases.list_reports(record.case_id)
+        remediation_counts = self._remediation_counts(record.case_id)
         return {
             "case": _record_to_dict(record),
             "counts": {
@@ -467,10 +487,27 @@ class CaseService:
                 "tags": len(tags),
                 "timeline_events": len(timeline),
                 "reports": len(reports),
+                "remediations": remediation_counts,
             },
             "captures": sorted(capture_cards, key=lambda c: str(c["capture_id"])),
             "reports": reports,
         }
+
+    def _remediation_counts(self, case_id: str) -> dict[str, int]:
+        """Workflow counts for the summary; absent service means none."""
+        service = self._remediation_service
+        if service is None:
+            return {
+                "open": 0,
+                "in_progress": 0,
+                "blocked": 0,
+                "completed": 0,
+                "verification_pending": 0,
+                "verified": 0,
+                "failed": 0,
+                "inconclusive": 0,
+            }
+        return service.remediation_counts(case_id)
 
     def _report_inputs(self, case_id: str) -> CaseReportInputs:
         record = self.get_case(case_id)
@@ -552,6 +589,9 @@ class CaseService:
         ai_service = self._ai_service
         configured = bool(ai_service is not None and getattr(ai_service, "_provider", None))
         correlations, correlation_summary = self._case_correlations(record.case_id)
+        remediations, remediation_timeline, verification_results = self._remediation_export(
+            record.case_id
+        )
         bookmarks = [_bookmark_to_dict(b) for b in self._cases.list_bookmarks(record.case_id)]
         notes = [_note_to_dict(n) for n in self._cases.list_notes(record.case_id)]
         tags = self._cases.list_tags(record.case_id)
@@ -575,6 +615,9 @@ class CaseService:
             graph_counts=sorted(graph_counts, key=lambda c: str(c["capture_id"])),
             correlations=correlations,
             correlation_summary=correlation_summary,
+            remediations=remediations,
+            remediation_timeline=remediation_timeline,
+            verification_results=verification_results,
             bookmarks=bookmarks,
             notes=notes,
             tags=tags,
@@ -608,6 +651,14 @@ class CaseService:
         """
         self._correlation_service = correlation_service
 
+    def attach_remediation_service(self, remediation_service: Any) -> None:
+        """Provide the remediation service for summary/report/export assembly.
+
+        Same attachment pattern as correlations: avoids a module-level
+        import cycle while keeping assembly centralized.
+        """
+        self._remediation_service = remediation_service
+
     def _case_correlations(self, case_id: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Correlations plus summary for reports/exports (never persisted)."""
         service = self._correlation_service
@@ -618,6 +669,15 @@ class CaseService:
             [correlation.to_dict() for correlation in report.correlations],
             report.to_summary(),
         )
+
+    def _remediation_export(
+        self, case_id: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+        """Remediation records, timelines, and verifications for reports/exports."""
+        service = self._remediation_service
+        if service is None:
+            return [], [], []
+        return service.export_data(case_id)
 
     # -- reports -----------------------------------------------------------
 
@@ -673,6 +733,9 @@ class CaseService:
             "reports": inputs.reports,
             "correlations": inputs.correlations,
             "correlation_summary": inputs.correlation_summary,
+            "remediations": inputs.remediations,
+            "remediation_timeline": inputs.remediation_timeline,
+            "verification_results": inputs.verification_results,
             "provenance": inputs.provenance,
         }
 
@@ -795,6 +858,20 @@ class CaseService:
             raw_correlations = []
         if not isinstance(raw_correlations, list):
             raise CaseValidationError("import document has an invalid correlations section")
+        raw_remediations = document.get("remediations", [])
+        if raw_remediations is None:
+            raw_remediations = []
+        if (
+            not isinstance(raw_remediations, list)
+            or len(raw_remediations) > MAX_IMPORT_REMEDIATIONS
+        ):
+            raise CaseValidationError("import document has an invalid remediations section")
+        for section in ("remediation_timeline", "verification_results"):
+            unexpected = document.get(section, [])
+            if unexpected is None:
+                continue
+            if not isinstance(unexpected, list):
+                raise CaseValidationError(f"import document has an invalid {section} section")
 
         record = self._cases.create_case(title, description, priority)
         if status != "OPEN":
@@ -863,6 +940,16 @@ class CaseService:
             warnings.append(
                 "imported correlations are not trusted; they will be recomputed from local evidence"
             )
+        imported_remediations = self._import_remediations(
+            record.case_id, raw_remediations, warnings
+        )
+        for section in ("remediation_timeline", "verification_results"):
+            entries = document.get(section, []) or []
+            if entries:
+                warnings.append(
+                    f"imported {section} discarded; workflow history restarts locally and "
+                    "verification must be re-run against local evidence"
+                )
         self._cases.append_timeline(
             record.case_id,
             "case_imported",
@@ -881,9 +968,81 @@ class CaseService:
             "notes_imported": imported_notes,
             "tags_imported": imported_tags,
             "bookmarks_imported": imported_bookmarks,
+            "remediations_imported": imported_remediations,
             "warnings": warnings,
         }
         return final, summary
+
+    def _import_remediations(
+        self, case_id: str, raw_remediations: list[object], warnings: list[str]
+    ) -> int:
+        """Import remediation records with verification state reset.
+
+        Remediation plans transfer as analyst workflow; verification
+        results do not (they reference captures/sessions that may differ
+        locally). Verification must be re-run against local evidence.
+        """
+        from app.remediation_store import (
+            validate_action,
+            validate_description,
+            validate_due_date,
+            validate_owner,
+            validate_remediation_status,
+            validate_remediation_target,
+            validate_remediation_target_id,
+            validate_title,
+        )
+
+        service = self._remediation_service
+        if service is None or not raw_remediations:
+            if raw_remediations:
+                warnings.append("remediations skipped: remediation service is not configured")
+            return 0
+        imported = 0
+        for entry in raw_remediations:
+            if not isinstance(entry, dict):
+                warnings.append("skipped a malformed remediation")
+                continue
+            try:
+                target_type = validate_remediation_target(str(entry.get("target_type", "")))
+                target_id = validate_remediation_target_id(
+                    target_type, str(entry.get("target_id", ""))
+                )
+                title = validate_title(str(entry.get("title", "")))
+                description = validate_description(str(entry.get("description", "")))
+                action = validate_action(str(entry.get("recommended_action", "")))
+                priority = validate_priority(str(entry.get("priority", "MEDIUM")))
+                status = validate_remediation_status(str(entry.get("status", "OPEN")))
+                owner = validate_owner(str(entry.get("owner", "")))
+                due_at = validate_due_date(entry.get("due_at"))
+                rule_id = entry.get("rule_id")
+                clean_rule = str(rule_id).strip() if rule_id else None
+            except ValueError as error:
+                warnings.append(f"skipped remediation: {error}")
+                continue
+            try:
+                service.import_remediation(
+                    case_id,
+                    target_type,
+                    target_id,
+                    title,
+                    description,
+                    action,
+                    priority,
+                    status,
+                    owner,
+                    due_at,
+                    clean_rule,
+                )
+                imported += 1
+            except CaseValidationError as error:
+                warnings.append(f"skipped remediation: {error}")
+        if imported:
+            warnings.append(
+                "imported remediations carry no verification state; "
+                "verification must be re-run against local evidence"
+            )
+        return imported
 
 
 def _bundle_readme(record: CaseRecord, export: dict[str, Any], include_evidence: bool) -> str:

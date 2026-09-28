@@ -318,6 +318,43 @@ curl -X POST http://127.0.0.1:8000/api/ai/query-correlation \
 Correlation is not attribution: repeated evidence does not establish
 intent, ownership, or compromise, and no correlation score exists.
 
+## Remediation workflow (Stage 13)
+
+Remediation plans track analyst action against immutable findings.
+The workspace Remediations tab (`/cases/<case_id>`, tab `remediations`)
+and the finding detail Remediation section cover listing, creation,
+status transitions, ownership, timelines, verification, and
+before/after comparison.
+
+```bash
+# Create a remediation from a finding (policy guidance preserved)
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/remediations/from-finding \
+  -H "Content-Type: application/json" \
+  -d '{"finding_id": "<finding_id>", "owner": "netops"}'
+
+# Move through the explicit state machine
+curl -X PATCH http://127.0.0.1:8000/api/cases/<case_id>/remediations/<remediation_id> \
+  -H "Content-Type: application/json" -d '{"status": "IN_PROGRESS"}'
+
+# Evidence-based verification against an explicitly selected capture
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/remediations/<remediation_id>/verify \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "evidence", "verification_capture_id": "<capture_id>"}'
+
+# Manual verification (analyst note required to complete)
+curl -X POST http://127.0.0.1:8000/api/cases/<case_id>/remediations/<remediation_id>/verify \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "manual", "notes": "Confirmed during maintenance window."}'
+
+curl http://127.0.0.1:8000/api/cases/<case_id>/remediations/<remediation_id>/verification
+curl http://127.0.0.1:8000/api/cases/<case_id>/remediations/<remediation_id>/timeline
+```
+
+Verification compares the original rule against the selected capture
+(VERIFIED = absent, FAILED = still present, INCONCLUSIVE = relevant
+session/evidence missing) and quotes posture before/after without
+causal claims. Findings are never mutated or deleted by this workflow.
+
 
 ## Hardening and evaluation (Stage 10)
 
@@ -350,6 +387,7 @@ with an actionable, secret-free message.
 python -m scripts.evaluate --repeat 2       # ground-truth evaluation (exit 1 on regression)
 python -m scripts.evaluate_cases --repeat 2 # case workflow evaluation (exit 1 on regression)
 python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation (exit 1)
+python -m scripts.evaluate_remediation --repeat 2   # remediation evaluation (exit 1)
 python -m scripts.benchmark --repeat 3      # performance baseline (synthetic fixtures)
 python -m scripts.demo                      # offline SIH demo (mock AI, real APIs)
 python -m scripts.demo --run-once           # CI-safe demo verification

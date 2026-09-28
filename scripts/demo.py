@@ -221,9 +221,70 @@ def _seed_demo_case(http, capture_ids: dict[str, str], summary: dict[str, object
         assert status == 200, (path, status, body[:200])
 
     _demo_correlations(http, case_id, case_captures)
+    _demo_remediation(http, case_id, capture_ids)
+
+    # Regenerate the report and export now that remediation workflow
+    # state exists, so the bundle reflects the full demo.
+    for path in ("report.json", "export", "bundle"):
+        status, body = http("GET", f"/api/cases/{case_id}/{path}")
+        assert status == 200, (path, status, body[:200])
 
     summary["case"] = {"case_id": case_id, "captures": len(case_captures)}
     print(f"  seeded demo case -> {case_id}")
+
+
+def _demo_remediation(http, case_id: str, capture_ids: dict[str, str]) -> None:
+    """Demonstrate the Stage 13 remediation workflow over the demo case.
+
+    Baseline deprecated-tls10 carries TLS-VERSION-001; verification
+    against secure-tls12 shows the rule absent (VERIFIED) with a quoted
+    posture comparison. All offline over the real API.
+    """
+    import json as _json
+
+    baseline_id = capture_ids["deprecated-tls10"]
+    verification_id = capture_ids["secure-tls12"]
+
+    _, findings_body = http("GET", f"/api/captures/{baseline_id}/findings")
+    findings = _json.loads(findings_body)
+    target = next(f for f in findings if f["rule_id"] == "TLS-VERSION-001")
+
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/remediations/from-finding",
+        _json.dumps({"finding_id": target["id"], "owner": "netops"}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    remediation_id = _json.loads(body)["remediation_id"]
+
+    for next_status in ("PLANNED", "IN_PROGRESS"):
+        status, body = http(
+            "PATCH",
+            f"/api/cases/{case_id}/remediations/{remediation_id}",
+            _json.dumps({"status": next_status}).encode(),
+            "application/json",
+        )
+        assert status == 200, (status, body)
+
+    status, body = http(
+        "POST",
+        f"/api/cases/{case_id}/remediations/{remediation_id}/verify",
+        _json.dumps({"mode": "evidence", "verification_capture_id": verification_id}).encode(),
+        "application/json",
+    )
+    assert status == 200, (status, body)
+    result = _json.loads(body)
+    assert result["result"] == "VERIFIED", body[:200]
+    comparison = result["comparison"]
+    print(f"  remediation {remediation_id} -> {result['result']}")
+    print(f"  {comparison['statement']}")
+    before = comparison["posture_before"]
+    after = comparison["posture_after"]
+    print(
+        f"  posture: {before.get('posture_state')} ({before.get('overall_score')}) -> "
+        f"{after.get('posture_state')} ({after.get('overall_score')})"
+    )
 
 
 def _demo_correlations(http, case_id: str, capture_ids: list[str]) -> None:

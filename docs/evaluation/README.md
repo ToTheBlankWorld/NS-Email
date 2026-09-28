@@ -114,6 +114,7 @@ python -m pytest engine/tests backend/tests -q      # full test suite
 python -m scripts.evaluate --repeat 2               # ground-truth evaluation
 python -m scripts.evaluate_cases --repeat 2         # case workflow evaluation
 python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation
+python -m scripts.evaluate_remediation --repeat 2   # remediation evaluation
 python -m scripts.benchmark --repeat 3              # performance baseline
 python -m scripts.demo --run-once                   # offline demo verification
 ```
@@ -152,10 +153,28 @@ C: endpoint Z / config X / cert Y leaf) and asserts the exact expected
 set of 10 correlations — types, evidence keys, affected captures,
 deterministic ordering, DIRECT/DERIVED strengths, and neutral language
 — plus summary counts, context, session-related observations, the
-layered investigation graph, report/export integration (schema 1.1),
+layered investigation graph, report/export integration (schema 1.2),
 and findings integrity. Single-capture rules (B's 3DES findings) are
 asserted to produce no correlation. Cross-run determinism compares
 types, keys, and capture sets (capture ids are content hashes);
 correlation ids additionally bind the random case id, so their shape —
 not cross-run equality — is asserted. Correlation is not attribution,
 and the harness scope note states that explicitly.
+
+## 12. Remediation evaluation (Stage 13)
+
+`python -m scripts.evaluate_remediation --repeat 2` drives a synthetic
+remediation scenario through the real API using existing deterministic
+fixtures: baseline `deprecated-tls10` (TLS-VERSION-001), verification
+`secure-tls12` (rule absent → VERIFIED with a degraded→healthy posture
+comparison), the baseline itself as verification (rule present →
+FAILED), and `secure-tls13` (no relevant session → INCONCLUSIVE).
+Cross-case and unanalyzed verification captures are asserted rejected.
+Ground truth covers policy-sourced remediation creation, status
+transitions, append-only verification history, finding integrity,
+neutral comparison statements, and report/export integration (schema
+1.2). Cross-run determinism compares evidence-derived structure
+(results, statements, posture states) rather than random ids or
+wall-clock timestamps. A finding describes historical observed
+evidence; absence of a rule in one capture does not prove global
+security.

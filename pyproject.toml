@@ -124,6 +124,7 @@ files = [
   "engine/graph",
   "engine/ai",
   "engine/correlation",
+  "engine/verification",
 ]
 strict = true
 pretty = true

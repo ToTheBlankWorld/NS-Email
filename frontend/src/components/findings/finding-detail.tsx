@@ -14,6 +14,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getFinding, type FindingRecord } from "@/lib/api";
+import {
+  createRemediationFromFinding,
+  listCases,
+  listFindingRemediations,
+  type CaseRecord,
+  type RemediationRecord,
+} from "@/lib/cases";
 
 type DetailState =
   | { status: "loading" }
@@ -190,6 +197,9 @@ export function FindingDetail({ findingId }: { findingId: string }) {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Remediation</CardTitle>
+            <CardDescription>
+              Policy guidance for this rule. The finding itself never changes.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="space-y-1 text-sm">
@@ -220,6 +230,7 @@ export function FindingDetail({ findingId }: { findingId: string }) {
         </Card>
       ) : null}
 
+      <FindingRemediationSection findingId={finding.id} />
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">Reference</CardTitle>
@@ -247,5 +258,129 @@ export function FindingDetail({ findingId }: { findingId: string }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Remediation workflow for one finding: existing records plus creation. */
+function FindingRemediationSection({ findingId }: { findingId: string }) {
+  const [cases, setCases] = useState<CaseRecord[] | null>(null);
+  const [caseId, setCaseId] = useState("");
+  const [records, setRecords] = useState<RemediationRecord[]>([]);
+  const [owner, setOwner] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadCases = useCallback((signal?: AbortSignal) => {
+    listCases(signal)
+      .then((list) => {
+        setCases(list);
+        if (list.length > 0) setCaseId((current) => current || list[0].case_id);
+      })
+      .catch(() => setCases([]));
+  }, []);
+
+  const loadRecords = useCallback(
+    (id: string, signal?: AbortSignal) => {
+      listFindingRemediations(id, findingId, signal)
+        .then((body) => setRecords(body.remediations))
+        .catch(() => {});
+    },
+    [findingId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadCases(controller.signal);
+    return () => controller.abort();
+  }, [loadCases]);
+
+  useEffect(() => {
+    if (!caseId) return;
+    const controller = new AbortController();
+    loadRecords(caseId, controller.signal);
+    return () => controller.abort();
+  }, [caseId, loadRecords]);
+
+  async function create() {
+    if (!caseId) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      await createRemediationFromFinding(caseId, {
+        finding_id: findingId,
+        owner: owner.trim() || undefined,
+      });
+      setOwner("");
+      loadRecords(caseId);
+      setMessage("Remediation created — the finding itself is unchanged.");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-medium">Remediation workflow</CardTitle>
+        <CardDescription>
+          Track plans against this finding per case. Creating a remediation never modifies the
+          finding.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={caseId}
+            onChange={(e) => {
+              setCaseId(e.target.value);
+              setRecords([]);
+            }}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+            aria-label="Case"
+          >
+            <option value="">Select a case…</option>
+            {(cases ?? []).map((c) => (
+              <option key={c.case_id} value={c.case_id}>
+                {c.title} ({c.case_number})
+              </option>
+            ))}
+          </select>
+          <input
+            value={owner}
+            onChange={(e) => setOwner(e.target.value)}
+            placeholder="owner (optional)"
+            maxLength={128}
+            className="rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+          <Button size="sm" variant="outline" disabled={busy || !caseId} onClick={() => void create()}>
+            Create remediation
+          </Button>
+        </div>
+        {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
+        {records.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No remediation records for this finding in the selected case.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {records.map((r) => (
+              <li key={r.remediation_id} className="flex flex-wrap items-center gap-2 text-xs">
+                <Link
+                  href={`/cases/${encodeURIComponent(r.case_id)}?tab=remediations`}
+                  className="font-medium hover:underline"
+                >
+                  {r.title}
+                </Link>
+                <span className="text-muted-foreground">
+                  {r.status} · {r.verification_status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }

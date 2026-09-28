@@ -50,6 +50,9 @@ class CaseReportInputs:
     graph_counts: list[dict[str, Any]] = field(default_factory=list)
     correlations: list[dict[str, Any]] = field(default_factory=list)
     correlation_summary: dict[str, Any] = field(default_factory=dict)
+    remediations: list[dict[str, Any]] = field(default_factory=list)
+    remediation_timeline: list[dict[str, Any]] = field(default_factory=list)
+    verification_results: list[dict[str, Any]] = field(default_factory=list)
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
     notes: list[dict[str, Any]] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -78,6 +81,8 @@ def evidence_digest(inputs: CaseReportInputs) -> str:
             "anomalies": inputs.anomalies,
             "postures": inputs.postures,
             "correlations": inputs.correlations,
+            "remediations": inputs.remediations,
+            "verification_results": inputs.verification_results,
         },
         sort_keys=True,
         default=str,
@@ -110,6 +115,8 @@ def build_case_report(inputs: CaseReportInputs) -> dict[str, Any]:
             "graph_counts": inputs.graph_counts,
         },
         "correlation": _correlation_section(inputs.correlations, inputs.correlation_summary),
+        "remediation": _remediation_section(inputs.remediations),
+        "verification": _verification_section(inputs.verification_results),
         "analyst_work": {
             "notice": (
                 "Analyst-authored metadata. Notes, tags, and bookmarks record "
@@ -229,6 +236,43 @@ def _correlation_section(
     }
 
 
+def _remediation_section(remediations: list[dict[str, Any]]) -> dict[str, Any]:
+    """Analyst remediation workflow: plans and states, not evidence."""
+    by_status: dict[str, int] = {}
+    for record in remediations:
+        status = str(record.get("status", "OPEN"))
+        by_status[status] = by_status.get(status, 0) + 1
+    return {
+        "notice": (
+            "Remediation workflow records what analysts planned and did "
+            "about findings. A remediation never alters the historical "
+            "finding it targets; findings remain exactly as observed."
+        ),
+        "count": len(remediations),
+        "by_status": dict(sorted(by_status.items())),
+        "remediations": list(remediations),
+    }
+
+
+def _verification_section(verifications: list[dict[str, Any]]) -> dict[str, Any]:
+    """Evidence-based verification results quoting later captures."""
+    by_result: dict[str, int] = {}
+    for record in verifications:
+        result = str(record.get("result", "PENDING"))
+        by_result[result] = by_result.get(result, 0) + 1
+    return {
+        "notice": (
+            "Verification evidence describes what a later capture showed "
+            "about an earlier finding. Absence of a rule in one capture "
+            "does not prove global security. Analyst-asserted results are "
+            "labeled as such and are not evidence-based."
+        ),
+        "count": len(verifications),
+        "by_result": dict(sorted(by_result.items())),
+        "results": list(verifications),
+    }
+
+
 def _ai_section(inputs: CaseReportInputs) -> dict[str, Any]:
     section: dict[str, Any] = {
         "notice": (
@@ -309,6 +353,9 @@ def _methodology() -> list[str]:
         "Stage 12: multi-capture correlation — deterministic shared-evidence "
         "relationships derived from structured observations. Correlation is "
         "not attribution and never alters forensic conclusions.",
+        "Stage 13: remediation workflow — analyst plans over immutable "
+        "findings with evidence-based verification against later captures. "
+        "Absence of a rule in one capture does not prove global security.",
     ]
 
 

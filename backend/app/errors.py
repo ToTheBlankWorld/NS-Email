@@ -35,6 +35,8 @@ ERROR_INVALID_REQUEST = "invalid_request"
 ERROR_INTERNAL = "internal_error"
 ERROR_CASE_NOT_FOUND = "case_not_found"
 ERROR_CORRELATION_NOT_FOUND = "correlation_not_found"
+ERROR_REMEDIATION_NOT_FOUND = "remediation_not_found"
+ERROR_VERIFICATION_NOT_FOUND = "verification_not_found"
 
 
 class ApiError(Exception):

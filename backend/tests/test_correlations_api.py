@@ -89,6 +89,8 @@ def _session(
 
 
 def _finding(index: int, capture_id: str, rule_id: str = "PLAINTEXT-001") -> SecurityFinding:
+    # Fixed detected_at: the default is wall-clock time, which would make
+    # determinism assertions meaningless on coarse host clocks.
     return SecurityFinding(
         id=f"finding_{index:016x}",
         capture_id=capture_id,
@@ -98,6 +100,7 @@ def _finding(index: int, capture_id: str, rule_id: str = "PLAINTEXT-001") -> Sec
         severity=FindingSeverity.MEDIUM,
         category=FindingCategory.HANDSHAKE,
         rule_id=rule_id,
+        detected_at=datetime(2024, 9, 27, 9, 0, 0, tzinfo=UTC),
     )
 
 
@@ -564,13 +567,15 @@ class TestCorrelationReportExport:
         pdf = client.get(f"/api/cases/{case['case_id']}/report.pdf").content
         assert pdf.startswith(b"%PDF-")
 
-    def test_export_schema_11_and_bundle(self, make_api) -> None:
+    def test_export_schema_12_and_bundle(self, make_api) -> None:
         client = make_api()
         case = self._correlated_case(client)
         export = client.get(f"/api/cases/{case['case_id']}/export").json()
-        assert export["schema_version"] == "1.1"
+        assert export["schema_version"] == "1.2"
         assert "correlations" in export
         assert "correlation_summary" in export
+        assert "remediations" in export
+        assert "verification_results" in export
         assert export["correlation_summary"]["correlation_count"] >= 1
         raw = str(export).lower()
         assert "attacker" not in raw
