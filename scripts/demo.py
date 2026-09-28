@@ -72,7 +72,7 @@ def seed_demo(storage_dir: Path, port: int) -> dict[str, object]:
 
         summary: dict[str, object] = {"scenarios": [], "reports": []}
         boundary = "----nse-demo"
-        seeded_captures: list[str] = []
+        seeded_captures: dict[str, str] = {}
 
         for scenario in load_scenarios():
             parts = [
@@ -127,7 +127,7 @@ def seed_demo(storage_dir: Path, port: int) -> dict[str, object]:
                     "sessions": analysis["sessions_found"],
                 }
             )
-            seeded_captures.append(capture_id)
+            seeded_captures[scenario.scenario_id] = capture_id
             print(f"  seeded {scenario.scenario_id} -> {capture_id}")
 
         _seed_demo_case(http, seeded_captures, summary)
@@ -138,12 +138,13 @@ def seed_demo(storage_dir: Path, port: int) -> dict[str, object]:
         thread.join(timeout=5)
 
 
-def _seed_demo_case(http, capture_ids: list[str], summary: dict[str, object]) -> None:
-    """Demonstrate the Stage 11 case workflow over the seeded captures.
+def _seed_demo_case(http, capture_ids: dict[str, str], summary: dict[str, object]) -> None:
+    """Demonstrate the Stage 11/12 case workflow over the seeded captures.
 
-    Creates a case, attaches captures, reviews a finding, adds a
-    bookmark/note/tag, generates the case report, and exports the case
-    bundle — all offline over the real API.
+    Creates a case, attaches two SMTP captures sharing infrastructure,
+    reviews a finding, adds a bookmark/note/tag, explores correlations,
+    asks the mock AI about one correlation, then generates the case
+    report and exports the case bundle — all offline over the real API.
     """
     import json as _json
 
@@ -163,7 +164,9 @@ def _seed_demo_case(http, capture_ids: list[str], summary: dict[str, object]) ->
     assert status == 200, (status, body)
     case_id = _json.loads(body)["case_id"]
 
-    for capture_id in capture_ids[:2]:
+    # Two SMTP captures sharing endpoint/host/protocol/SNI/issuer.
+    case_captures = [capture_ids[s] for s in ("secure-tls12", "deprecated-tls10")]
+    for capture_id in case_captures:
         status, body = http(
             "POST",
             f"/api/cases/{case_id}/captures",
@@ -173,7 +176,7 @@ def _seed_demo_case(http, capture_ids: list[str], summary: dict[str, object]) ->
         assert status == 200, (status, body)
 
     bookmarked = False
-    for capture_id in capture_ids:
+    for capture_id in case_captures:
         _, findings_body = http("GET", f"/api/captures/{capture_id}/findings")
         for finding in _json.loads(findings_body):
             status, body = http(
@@ -217,8 +220,57 @@ def _seed_demo_case(http, capture_ids: list[str], summary: dict[str, object]) ->
         status, body = http("GET", f"/api/cases/{case_id}/{path}")
         assert status == 200, (path, status, body[:200])
 
-    summary["case"] = {"case_id": case_id, "captures": len(capture_ids[:2])}
+    _demo_correlations(http, case_id, case_captures)
+
+    summary["case"] = {"case_id": case_id, "captures": len(case_captures)}
     print(f"  seeded demo case -> {case_id}")
+
+
+def _demo_correlations(http, case_id: str, capture_ids: list[str]) -> None:
+    """Demonstrate the Stage 12 correlation workflow over the demo case."""
+    import json as _json
+
+    status, body = http("GET", f"/api/cases/{case_id}/correlations/summary")
+    assert status == 200, (status, body)
+    corr_summary = _json.loads(body)
+    assert corr_summary["correlation_count"] >= 1, corr_summary
+    print(f"  correlations: {corr_summary['correlation_count']} across {len(capture_ids)} captures")
+
+    status, body = http("GET", f"/api/cases/{case_id}/correlations?sort=type")
+    assert status == 200, (status, body)
+    correlations = _json.loads(body)["correlations"]
+    first = correlations[0]
+    print(f"  inspect {first['correlation_type']}: {first['evidence_key'][:72]}")
+
+    status, body = http(
+        "GET", f"/api/cases/{case_id}/correlations/{first['correlation_id']}/context"
+    )
+    assert status == 200, (status, body)
+    assert _json.loads(body)["graph_nodes"], body[:200]
+
+    status, body = http("GET", f"/api/cases/{case_id}/graph")
+    assert status == 200, (status, body)
+    assert _json.loads(body)["edge_count"] >= 1, body[:200]
+
+    _, sessions_body = http("GET", f"/api/captures/{capture_ids[0]}/sessions")
+    session_id = _json.loads(sessions_body)[0]["id"]
+    status, body = http("GET", f"/api/cases/{case_id}/sessions/{session_id}/related")
+    assert status == 200, (status, body)
+
+    status, body = http(
+        "POST",
+        "/api/ai/query-correlation",
+        _json.dumps(
+            {
+                "question": "Explain the repeated observations in this case.",
+                "case_id": case_id,
+                "correlation_id": first["correlation_id"],
+            }
+        ).encode(),
+        "application/json",
+    )
+    assert status == 200 and _json.loads(body)["status"] == "completed", body
+    print("  correlation summary displayed; shared evidence inspected; mock AI queried")
 
 
 def serve(storage_dir: Path, port: int) -> int:

@@ -39,6 +39,9 @@ jobs:
       - name: Case evaluation suite
         run: python -m scripts.evaluate_cases --repeat 2
 
+      - name: Correlation evaluation suite
+        run: python -m scripts.evaluate_correlations --repeat 2
+
       - name: Demo workflow (offline, mock AI)
         run: python -m scripts.demo --run-once
 

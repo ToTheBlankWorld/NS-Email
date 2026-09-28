@@ -147,6 +147,7 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
     meta = report.get("report", {})
     case = report.get("case", {})
     evidence = report.get("evidence", {})
+    correlation = report.get("correlation", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -267,6 +268,36 @@ def render_case_pdf_report(report: dict[str, Any]) -> bytes:
             for a in anomaly_items
         ],
         [52, 52, 44, 30],
+    )
+
+    # Correlation ---------------------------------------------------------------
+    _section_title(pdf, "Correlation - Repeated Evidence Across Captures")
+    _note(
+        pdf,
+        str(correlation.get("notice") or "Derived shared-evidence relationships."),
+    )
+    corr_summary = correlation.get("summary", {})
+    _key_values(
+        pdf,
+        [
+            ("Correlations", corr_summary.get("correlation_count")),
+            ("Captures correlated", corr_summary.get("capture_count")),
+            ("Sessions scanned", corr_summary.get("sessions_scanned")),
+        ],
+    )
+    _table(
+        pdf,
+        ["Type", "Strength", "Occurrences", "Evidence key"],
+        [
+            [
+                c.get("correlation_type"),
+                c.get("strength"),
+                c.get("occurrence_count"),
+                c.get("evidence_key"),
+            ]
+            for c in correlation.get("correlations", [])
+        ],
+        [52, 30, 30, 66],
     )
 
     # Analyst work ------------------------------------------------------------

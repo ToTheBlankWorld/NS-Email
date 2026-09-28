@@ -113,6 +113,7 @@ python -m pip install -e ".[dev]"
 python -m pytest engine/tests backend/tests -q      # full test suite
 python -m scripts.evaluate --repeat 2               # ground-truth evaluation
 python -m scripts.evaluate_cases --repeat 2         # case workflow evaluation
+python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation
 python -m scripts.benchmark --repeat 3              # performance baseline
 python -m scripts.demo --run-once                   # offline demo verification
 ```
@@ -141,3 +142,20 @@ behavior over controlled fixtures — it does not measure real-world
 investigative efficacy, and case metadata never alters forensic
 conclusions (asserted by both the harness and the backend regression
 suite).
+
+## 11. Correlation evaluation (Stage 12)
+
+`python -m scripts.evaluate_correlations --repeat 2` builds three
+deterministic captures with deliberate overlaps (A: endpoint X /
+config X / cert X with chain; B: endpoint X / config Y / cert X leaf;
+C: endpoint Z / config X / cert Y leaf) and asserts the exact expected
+set of 10 correlations — types, evidence keys, affected captures,
+deterministic ordering, DIRECT/DERIVED strengths, and neutral language
+— plus summary counts, context, session-related observations, the
+layered investigation graph, report/export integration (schema 1.1),
+and findings integrity. Single-capture rules (B's 3DES findings) are
+asserted to produce no correlation. Cross-run determinism compares
+types, keys, and capture sets (capture ids are content hashes);
+correlation ids additionally bind the random case id, so their shape —
+not cross-run equality — is asserted. Correlation is not attribution,
+and the harness scope note states that explicitly.

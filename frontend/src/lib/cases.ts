@@ -266,6 +266,198 @@ export function caseBundleUrl(caseId: string, includeEvidence = false): string {
   return `${API_BASE_URL}/api/cases/${encodeURIComponent(caseId)}/bundle${query}`;
 }
 
+// ---------------------------------------------------------------------------
+// Multi-capture correlation (Stage 12)
+// ---------------------------------------------------------------------------
+
+export type CorrelationOccurrence = {
+  capture_id: string;
+  session_id: string;
+  finding_id: string | null;
+  anomaly_id: string | null;
+  observed_at: string | null;
+};
+
+export type CorrelationRecord = {
+  correlation_id: string;
+  case_id: string;
+  correlation_type: string;
+  strength: "direct" | "derived";
+  evidence_key: string;
+  evidence: Record<string, unknown>;
+  occurrence_count: number;
+  capture_count: number;
+  session_count: number;
+  source_capture_ids: string[];
+  source_session_ids: string[];
+  occurrences: CorrelationOccurrence[];
+  first_observed_at: string | null;
+  last_observed_at: string | null;
+};
+
+export type CorrelationSummary = {
+  case_id: string;
+  capture_count: number;
+  correlation_count: number;
+  sessions_scanned: number;
+  index_keys: number;
+  by_type: Record<string, number>;
+};
+
+export type CorrelationListParams = {
+  type?: string;
+  capture_id?: string;
+  protocol?: string;
+  endpoint?: string;
+  certificate?: string;
+  finding?: string;
+  search?: string;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export type CorrelationList = {
+  case_id: string;
+  total: number;
+  limit: number;
+  offset: number;
+  correlations: CorrelationRecord[];
+};
+
+export type GraphRefNode = {
+  node_id: string;
+  node_type: string;
+  label: string;
+};
+
+export type CorrelationContext = {
+  correlation: CorrelationRecord;
+  related_finding_ids: string[];
+  related_anomaly_ids: string[];
+  graph_nodes: GraphRefNode[];
+  timeline_refs: { entry_id: string; event_type: string; created_at: string | null }[];
+};
+
+export type SessionRelatedEntry = {
+  correlation_id: string;
+  correlation_type: string;
+  evidence_key: string;
+  other_session_count: number;
+  other_session_ids: string[];
+  other_capture_ids: string[];
+};
+
+export type SessionRelated = {
+  case_id: string;
+  session_id: string;
+  capture_id: string;
+  related: SessionRelatedEntry[];
+};
+
+export type InvestigationGraph = {
+  case_id: string;
+  nodes: { node_id: string; node_type: string; label: string; layer: string }[];
+  edges: {
+    source_node_id: string;
+    target_node_id: string;
+    edge_type: string;
+    layer: string;
+    basis: string;
+  }[];
+  node_count: number;
+  edge_count: number;
+  sessions_truncated: boolean;
+  correlation_count: number;
+};
+
+export type CorrelationAIResult = {
+  status: string;
+  answer?: string;
+  error?: string;
+  query?: string;
+  key_observations?: string[];
+  interpretations?: string[];
+  uncertainties?: string[];
+  model?: string;
+  provider?: string;
+  validation_status?: string;
+};
+
+/** List correlations with analyst filters, search, and sorting. */
+export function listCorrelations(
+  caseId: string,
+  params: CorrelationListParams = {},
+  signal?: AbortSignal,
+): Promise<CorrelationList> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  return request<CorrelationList>(`/api/cases/${encodeURIComponent(caseId)}/correlations${suffix}`, {
+    signal,
+    cache: "no-store",
+  });
+}
+
+export function getCorrelationSummary(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<CorrelationSummary> {
+  return request<CorrelationSummary>(
+    `/api/cases/${encodeURIComponent(caseId)}/correlations/summary`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function getCorrelationContext(
+  caseId: string,
+  correlationId: string,
+  signal?: AbortSignal,
+): Promise<CorrelationContext> {
+  return request<CorrelationContext>(
+    `/api/cases/${encodeURIComponent(caseId)}/correlations/${encodeURIComponent(correlationId)}/context`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function getSessionRelated(
+  caseId: string,
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<SessionRelated> {
+  return request<SessionRelated>(
+    `/api/cases/${encodeURIComponent(caseId)}/sessions/${encodeURIComponent(sessionId)}/related`,
+    { signal, cache: "no-store" },
+  );
+}
+
+export function getInvestigationGraph(
+  caseId: string,
+  signal?: AbortSignal,
+): Promise<InvestigationGraph> {
+  return request<InvestigationGraph>(`/api/cases/${encodeURIComponent(caseId)}/graph`, {
+    signal,
+    cache: "no-store",
+  });
+}
+
+/** Ask the AI about one correlation (minimized context, never persisted). */
+export async function queryCorrelationAI(
+  caseId: string,
+  correlationId: string,
+  question: string,
+): Promise<CorrelationAIResult> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/query-correlation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, case_id: caseId, correlation_id: correlationId }),
+  });
+  if (!response.ok) throw await parseCaseError(response);
+  return (await response.json()) as CorrelationAIResult;
+}
+
 /** Deep-link a bookmark target back to its evidence view. */
 export function bookmarkHref(bookmark: CaseBookmark): string {
   switch (bookmark.target_type) {

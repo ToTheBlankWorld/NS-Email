@@ -94,6 +94,7 @@ def render_case_html_report(report: dict[str, Any]) -> str:
     meta = report.get("report", {})
     case = report.get("case", {})
     evidence = report.get("evidence", {})
+    correlation = report.get("correlation", {})
     work = report.get("analyst_work", {})
     ai = report.get("ai_interpretation", {})
     provenance = report.get("provenance", {})
@@ -200,6 +201,40 @@ def render_case_html_report(report: dict[str, Any]) -> str:
                     _esc(a.get("score")),
                 ]
                 for a in anomaly_items
+            ],
+        )
+    )
+    parts.append("</section>")
+
+    # Correlation -----------------------------------------------------
+    parts.append("<section><h2>Correlation — Repeated Evidence Across Captures</h2>")
+    parts.append(f'<p class="note">{_esc(correlation.get("notice"))}</p>')
+    summary = correlation.get("summary", {})
+    parts.append("<dl class='meta-grid'>")
+    parts.append(_kv("Correlations", summary.get("correlation_count")))
+    parts.append(_kv("Captures correlated", summary.get("capture_count")))
+    parts.append(_kv("Sessions scanned", summary.get("sessions_scanned")))
+    parts.append("</dl>")
+    by_type = summary.get("by_type", {})
+    parts.append(
+        _render_table(
+            ["Correlation type", "Count"],
+            [[_esc(t), str(by_type.get(t, 0))] for t in sorted(by_type)],
+        )
+    )
+    parts.append(
+        _render_table(
+            ["Correlation", "Type", "Strength", "Occurrences", "Captures", "Evidence key"],
+            [
+                [
+                    _esc(c.get("correlation_id")),
+                    _esc(c.get("correlation_type")),
+                    _esc(c.get("strength")),
+                    _esc(c.get("occurrence_count")),
+                    _esc(", ".join(str(x) for x in c.get("source_capture_ids", []))),
+                    _esc(c.get("evidence_key")),
+                ]
+                for c in correlation.get("correlations", [])
             ],
         )
     )

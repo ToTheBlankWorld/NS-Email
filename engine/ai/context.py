@@ -17,6 +17,8 @@ MAX_RELATED_SESSIONS: Final[int] = 5
 MAX_FINDINGS: Final[int] = 10
 MAX_TIMELINE_EVENTS: Final[int] = 20
 MAX_CONTEXT_JSON_CHARS: Final[int] = 12_000
+MAX_CORRELATION_SESSIONS: Final[int] = 20
+MAX_CORRELATION_OCCURRENCES: Final[int] = 20
 
 _SENSITIVE_KEYS: Final[frozenset[str]] = frozenset(
     {"credential_data", "password", "secret", "private_key", "api_key"}
@@ -145,4 +147,57 @@ def build_ai_context(
         protocol=session.protocol.value if session.protocol else None,
         context_json=context_json,
         related_session_count=len(investigation.related_session_ids),
+    )
+
+
+def build_correlation_ai_context(correlation: dict[str, Any]) -> AIContext:
+    """Build a minimized, bounded AI context for one explicit correlation question.
+
+    Contains only the correlation type, evidence key, affected
+    captures/sessions, and supporting evidence references — never
+    secrets, credentials, raw evidence, or analyst notes. The returned
+    context carries no session id, so citation validation stays vacuous
+    and the response is never persisted to capture AI history.
+    """
+    occurrences = correlation.get("occurrences", [])
+    trimmed = [
+        {
+            "capture_id": o.get("capture_id"),
+            "session_id": o.get("session_id"),
+            "finding_id": o.get("finding_id"),
+            "anomaly_id": o.get("anomaly_id"),
+        }
+        for o in occurrences[:MAX_CORRELATION_OCCURRENCES]
+    ]
+    context = _strip_sensitive(
+        {
+            "kind": "case_correlation",
+            "correlation_id": correlation.get("correlation_id"),
+            "correlation_type": correlation.get("correlation_type"),
+            "strength": correlation.get("strength"),
+            "evidence_key": correlation.get("evidence_key"),
+            "evidence": correlation.get("evidence", {}),
+            "occurrence_count": correlation.get("occurrence_count"),
+            "source_capture_ids": list(correlation.get("source_capture_ids", []))[
+                :MAX_CORRELATION_SESSIONS
+            ],
+            "source_session_ids": list(correlation.get("source_session_ids", []))[
+                :MAX_CORRELATION_SESSIONS
+            ],
+            "occurrences": trimmed,
+            "notice": (
+                "Interpretive assistance about a repeated observation. "
+                "Do not assert attribution, ownership, intent, or compromise."
+            ),
+        }
+    )
+    context_json = json.dumps(context, indent=1, default=str)
+    if len(context_json) > MAX_CONTEXT_JSON_CHARS:
+        context_json = context_json[:MAX_CONTEXT_JSON_CHARS]
+    return AIContext(
+        capture_id="",
+        session_id="",
+        protocol=None,
+        context_json=context_json,
+        related_session_count=len(correlation.get("source_session_ids", [])),
     )

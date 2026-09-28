@@ -233,6 +233,24 @@ frontend case workspace (`/cases`, `/cases/[caseId]`) links to existing
 evidence views instead of reimplementing them. Full rationale and
 boundaries: `docs/decisions/011-forensic-case-management.md`.
 
+### Stage 12: multi-capture correlation
+
+Correlations (`engine/correlation`, `backend/app/services/
+correlations.py`, `backend/app/routers/correlations.py`) derive
+deterministic shared-evidence relationships from the structured records
+of a case's captures. The engine (`normalize` → single indexing pass →
+per-key relationships, O(N + relationships)) emits a fixed ten-type
+vocabulary with `corr_<sha256(...)[:16]>` ids bound to the case; the
+backend serves them read-only and on-demand (list/summary/detail/
+context/session-related/investigation-graph) with bounded output.
+Reports and exports (schema 1.1) embed correlations; import accepts
+1.0/1.1 but always recomputes them locally. AI answers explicit
+correlation questions from a minimized ephemeral context. One
+prerequisite persistence fix: `session_certificates` is keyed by
+`(id, session_id)` so identical certificates observed in different
+sessions no longer collapse. Full rationale and boundaries:
+`docs/decisions/012-multi-capture-correlation.md`.
+
 ## Security boundaries
 
 - **Captures are untrusted input.** Parsing is read-only; extracted content is data, never

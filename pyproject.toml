@@ -123,6 +123,7 @@ files = [
   "engine/ml",
   "engine/graph",
   "engine/ai",
+  "engine/correlation",
 ]
 strict = true
 pretty = true

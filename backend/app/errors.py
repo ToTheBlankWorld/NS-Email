@@ -34,6 +34,7 @@ ERROR_INSPECTOR_UNAVAILABLE = "packet_inspector_unavailable"
 ERROR_INVALID_REQUEST = "invalid_request"
 ERROR_INTERNAL = "internal_error"
 ERROR_CASE_NOT_FOUND = "case_not_found"
+ERROR_CORRELATION_NOT_FOUND = "correlation_not_found"
 
 
 class ApiError(Exception):

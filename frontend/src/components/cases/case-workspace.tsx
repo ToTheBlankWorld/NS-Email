@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CorrelationsTab } from "@/components/cases/correlations-tab";
 import {
   getGraph,
   listAnomalies,
@@ -55,6 +56,7 @@ const TABS = [
   "findings",
   "anomalies",
   "graph",
+  "correlations",
   "notes",
   "bookmarks",
   "timeline",
@@ -293,6 +295,15 @@ export function CaseWorkspace({ caseId, initialTab }: { caseId: string; initialT
       ) : null}
 
       {tab === "graph" ? <GraphTab evidence={evidence} /> : null}
+
+      {tab === "correlations" ? (
+        <CorrelationsTab
+          caseId={caseId}
+          captureIds={state.summary.captures
+            .filter((c) => c.available)
+            .map((c) => c.capture_id)}
+        />
+      ) : null}
 
       {tab === "notes" ? (
         <NotesTab
@@ -952,8 +963,9 @@ function ReportsTab({
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <p className="text-xs text-muted-foreground">
-            Reports quote authoritative per-capture evidence and clearly separate analyst notes
-            from AI interpretation. Tags on this case: {tags.join(", ") || "none"}.
+            Reports quote authoritative per-capture evidence, include the derived correlation
+            section (shared evidence across captures — not attribution), and clearly separate
+            analyst notes from AI interpretation. Tags on this case: {tags.join(", ") || "none"}.
           </p>
           <div className="flex flex-wrap gap-2">
             {(["json", "html", "pdf"] as const).map((format) => (

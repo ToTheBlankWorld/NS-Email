@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     tls_handshake TEXT
 );
 CREATE TABLE IF NOT EXISTS session_certificates (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     session_id TEXT NOT NULL,
     position_in_chain INTEGER,
     subject TEXT NOT NULL,
@@ -88,7 +88,8 @@ CREATE TABLE IF NOT EXISTS session_certificates (
     public_key_algorithm TEXT,
     public_key_size_bits INTEGER,
     subject_alternative_names TEXT NOT NULL DEFAULT '[]',
-    fingerprint_sha256 TEXT NOT NULL
+    fingerprint_sha256 TEXT NOT NULL,
+    PRIMARY KEY (id, session_id)
 );
 CREATE INDEX IF NOT EXISTS idx_certificates_session ON session_certificates(session_id);
 CREATE TABLE IF NOT EXISTS findings (
@@ -512,10 +513,47 @@ class SQLiteSessionStore:
 
     @staticmethod
     def _migrate(connection: sqlite3.Connection) -> None:
-        """Best-effort column additions for stores created by earlier stages."""
+        """Best-effort upgrades for stores created by earlier stages."""
         existing = {row[1] for row in connection.execute("PRAGMA table_info(sessions)")}
         if "tls_handshake" not in existing:
             connection.execute("ALTER TABLE sessions ADD COLUMN tls_handshake TEXT")
+        # Stage 12: certificate identity is per observation, not global.
+        # The original PRIMARY KEY (id) collapsed identical certificates
+        # observed in different sessions (e.g. across captures), silently
+        # dropping all but the last observation. Rebuild with (id,
+        # session_id) when the legacy single-column key is detected.
+        cert_info = connection.execute("PRAGMA table_info(session_certificates)").fetchall()
+        cert_pk = sorted(row[1] for row in cert_info if row[5] > 0)
+        if cert_pk == ["id"]:
+            connection.execute(
+                """CREATE TABLE session_certificates_new (
+                    id TEXT NOT NULL,
+                    session_id TEXT NOT NULL,
+                    position_in_chain INTEGER,
+                    subject TEXT NOT NULL,
+                    issuer TEXT NOT NULL,
+                    serial_number TEXT NOT NULL,
+                    not_before TEXT,
+                    not_after TEXT,
+                    signature_algorithm TEXT NOT NULL,
+                    public_key_algorithm TEXT,
+                    public_key_size_bits INTEGER,
+                    subject_alternative_names TEXT NOT NULL DEFAULT '[]',
+                    fingerprint_sha256 TEXT NOT NULL,
+                    PRIMARY KEY (id, session_id)
+                )"""
+            )
+            connection.execute(
+                "INSERT OR IGNORE INTO session_certificates_new SELECT * FROM session_certificates"
+            )
+            connection.execute("DROP TABLE session_certificates")
+            connection.execute(
+                "ALTER TABLE session_certificates_new RENAME TO session_certificates"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_certificates_session "
+                "ON session_certificates(session_id)"
+            )
 
     @contextmanager
     def _session(self) -> Iterator[sqlite3.Connection]:

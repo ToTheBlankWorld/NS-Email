@@ -10,12 +10,13 @@ certificate validity — producing evidence-backed, prioritized security finding
 Built for **Smart India Hackathon 2026** as an original research project on enterprise email
 cryptographic posture.
 
-> **Status: Stage 11 — forensic case management and evidence preservation.**
-> The platform now ships a complete investigation workflow: forensic
-> cases around one or more captures, analyst notes/tags/bookmarks, a
-> case investigation timeline, case-level JSON / HTML / PDF reports,
-> versioned JSON export, and reproducible case bundles with technical
-> provenance metadata. Case metadata never alters forensic conclusions.
+> **Status: Stage 12 — multi-capture correlation and investigation intelligence.**
+> Cases with multiple captures now answer "what evidence is repeated
+> across this case?": deterministic shared-endpoint/host/certificate/
+> TLS-configuration/finding correlations with a case investigation
+> graph, session related-observations, and report/export integration.
+> Correlation is derived intelligence only — never attribution, never a
+> score, and never a mutation of forensic conclusions.
 > See [Development stages](#development-stages).
 
 ---
@@ -125,8 +126,9 @@ Dependencies are added only when a stage actually needs them.
 | 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | done |
 | 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | done |
 | 10    | Production hardening: deterministic evaluation, security regressions, limits, readiness, CI, demo | done |
-| 11    | Forensic case management: cases, analyst notes/tags/bookmarks, timeline, case reports, export/bundle, provenance | **current** |
-| 12+   | Future work | planned |
+| 11    | Forensic case management: cases, analyst notes/tags/bookmarks, timeline, case reports, export/bundle, provenance | done |
+| 12    | Multi-capture correlation: shared-evidence relationships, investigation graph, session related-observations, report/export integration | **current** |
+| 13+   | Future work | planned |
 
 Each stage lands as its own reviewed, tested commit.
 
@@ -195,8 +197,15 @@ Each stage lands as its own reviewed, tested commit.
   investigation timeline (kept separate from the forensic timeline), deterministic
   case summaries (counts plus quoted per-capture posture — no case score), case-level
   JSON/HTML/PDF reports, versioned JSON export, reproducible zip bundles with
-  `evidence-manifest.json` and technical provenance metadata (labeled as such, never
+  `evidence-manifest.json` and technical   provenance metadata (labeled as such, never
   as legal chain-of-custody), and bundle import that always creates a new case.
+- **Correlation (Stage 12)** — `GET /api/cases/{id}/correlations` with type/capture/
+  protocol/endpoint/certificate/finding filters, evidence-key search, and sorting;
+  counts-only summary; per-correlation context (related findings/anomalies, graph-node
+  references, timeline refs); session related-observations; a layered investigation
+  graph (`forensic` vs `correlation`); explicit ephemeral AI questions about one
+  correlation. Deterministic index-based engine over structured evidence only —
+  no attribution, no scores, no evidence mutation.
 - **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis
   layers: packet source (pure-Python pcap/pcapng reader), flow grouping, stream reassembly,
   protocol detection, and per-protocol session reconstructors.

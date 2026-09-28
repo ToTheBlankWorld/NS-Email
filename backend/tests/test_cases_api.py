@@ -525,7 +525,7 @@ class TestExportBundleImport:
         client.post(f"/api/cases/{case['case_id']}/tags", json={"tag": "tls"})
 
         first = client.get(f"/api/cases/{case['case_id']}/export").json()
-        assert first["schema_version"] == "1.0"
+        assert first["schema_version"] == "1.1"
         for key in (
             "case",
             "captures",
@@ -536,6 +536,8 @@ class TestExportBundleImport:
             "tags",
             "timeline",
             "reports",
+            "correlations",
+            "correlation_summary",
             "provenance",
         ):
             assert key in first, key

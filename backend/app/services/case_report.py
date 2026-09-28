@@ -48,6 +48,8 @@ class CaseReportInputs:
     anomaly_summaries: list[dict[str, Any]] = field(default_factory=list)
     postures: list[dict[str, Any]] = field(default_factory=list)
     graph_counts: list[dict[str, Any]] = field(default_factory=list)
+    correlations: list[dict[str, Any]] = field(default_factory=list)
+    correlation_summary: dict[str, Any] = field(default_factory=dict)
     bookmarks: list[dict[str, Any]] = field(default_factory=list)
     notes: list[dict[str, Any]] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -75,6 +77,7 @@ def evidence_digest(inputs: CaseReportInputs) -> str:
             "findings": inputs.findings,
             "anomalies": inputs.anomalies,
             "postures": inputs.postures,
+            "correlations": inputs.correlations,
         },
         sort_keys=True,
         default=str,
@@ -106,6 +109,7 @@ def build_case_report(inputs: CaseReportInputs) -> dict[str, Any]:
             "anomalies": _anomalies_section(inputs.anomalies, inputs.anomaly_summaries),
             "graph_counts": inputs.graph_counts,
         },
+        "correlation": _correlation_section(inputs.correlations, inputs.correlation_summary),
         "analyst_work": {
             "notice": (
                 "Analyst-authored metadata. Notes, tags, and bookmarks record "
@@ -209,6 +213,22 @@ def _anomalies_section(
     }
 
 
+def _correlation_section(
+    correlations: list[dict[str, Any]], summary: dict[str, Any]
+) -> dict[str, Any]:
+    """Derived cross-capture relationships with explicit references."""
+    return {
+        "notice": (
+            "Derived investigation intelligence: repeated structured "
+            "observations across the case's captures. Correlations describe "
+            "shared evidence; they are not attribution, not proof of common "
+            "ownership, and not indicators of compromise or malicious intent."
+        ),
+        "summary": summary,
+        "correlations": list(correlations),
+    }
+
+
 def _ai_section(inputs: CaseReportInputs) -> dict[str, Any]:
     section: dict[str, Any] = {
         "notice": (
@@ -286,6 +306,9 @@ def _methodology() -> list[str]:
         "Stage 11: case workspace — capture references, analyst notes, tags, "
         "bookmarks, investigation timeline, and reproducible export. Case "
         "metadata never mutates forensic truth.",
+        "Stage 12: multi-capture correlation — deterministic shared-evidence "
+        "relationships derived from structured observations. Correlation is "
+        "not attribution and never alters forensic conclusions.",
     ]
 
 

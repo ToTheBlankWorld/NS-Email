@@ -9,7 +9,7 @@ import logging
 import time
 from typing import Any
 
-from engine.ai.context import build_ai_context
+from engine.ai.context import build_ai_context, build_correlation_ai_context
 from engine.ai.prompts import build_system_prompt, build_user_prompt
 from engine.ai.provider import (
     AIProviderError,
@@ -124,6 +124,85 @@ class AIAnalystService:
 
         response = build_response(
             response_id=f"ai_{format(hash(session_id + question) & 0xFFFFFFFFFFFFFFFF, '012x')}",
+            query=question,
+            parsed=parsed,
+            context=ai_context,
+            model=llm_response.model,
+            provider=llm_response.provider,
+        )
+
+        from dataclasses import asdict
+
+        result = asdict(response)
+        result["status"] = "completed"
+        return result
+
+    def query_correlation(
+        self,
+        correlation: dict[str, Any],
+        question: str,
+    ) -> dict[str, Any]:
+        """Answer an explicit analyst question about one case correlation.
+
+        The correlation record is read-only input: the AI receives a
+        minimized, bounded context and can neither create correlations
+        nor change relationships. Responses are ephemeral — never
+        persisted to capture AI history, never quoted in reports.
+        """
+        if self._provider is None:
+            return {"status": "not_configured", "error": "No AI provider is configured."}
+        if not question or not question.strip():
+            return {"status": "invalid_request", "error": "Question must not be empty."}
+        if len(question) > 2000:
+            return {"status": "invalid_request", "error": "Question exceeds 2000 characters."}
+
+        correlation_id = str(correlation.get("correlation_id", ""))
+        logger.info(
+            "ai correlation request started: correlation_id=%s provider=%s",
+            correlation_id,
+            self._provider.provider_name,
+        )
+        started = time.monotonic()
+
+        ai_context = build_correlation_ai_context(correlation)
+        system_prompt = build_system_prompt()
+        user_prompt = build_user_prompt(question, ai_context.context_json)
+
+        try:
+            llm_response = self._provider.generate(
+                LLMRequest(system_prompt=system_prompt, user_prompt=user_prompt)
+            )
+        except AIProviderUnavailableError as error:
+            return {"status": "provider_unavailable", "error": str(error)}
+        except AIProviderError as error:
+            return {"status": "model_error", "error": str(error)}
+
+        try:
+            parsed = parse_llm_output(llm_response.text)
+            validate_response(parsed, ai_context)
+        except Exception as error:
+            logger.warning(
+                "ai correlation response validation failed: correlation_id=%s error=%s",
+                correlation_id,
+                error,
+            )
+            return {
+                "status": "validation_failed",
+                "error": f"AI response failed validation: {error}",
+                "raw_text": llm_response.text[:500],
+            }
+
+        logger.info(
+            "ai correlation request completed: correlation_id=%s provider=%s duration_ms=%d",
+            correlation_id,
+            self._provider.provider_name,
+            int((time.monotonic() - started) * 1000),
+        )
+
+        response = build_response(
+            response_id=(
+                f"ai_{format(hash(correlation_id + question) & 0xFFFFFFFFFFFFFFFF, '012x')}"
+            ),
             query=question,
             parsed=parsed,
             context=ai_context,

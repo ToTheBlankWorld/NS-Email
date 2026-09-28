@@ -57,7 +57,11 @@ from app.services.case_report import (
 )
 from app.storage import CaptureStorage
 
-CASE_EXPORT_SCHEMA_VERSION = "1.0"
+CASE_EXPORT_SCHEMA_VERSION = "1.1"
+CASE_EXPORT_SCHEMA_VERSION_1_0 = "1.0"
+#: Schema versions accepted on import. Correlations are always recomputed
+#: from local evidence, so 1.0 bundles (without correlations) import cleanly.
+SUPPORTED_IMPORT_SCHEMA_VERSIONS = (CASE_EXPORT_SCHEMA_VERSION, CASE_EXPORT_SCHEMA_VERSION_1_0)
 CASE_BUNDLE_README_NAME = "README.txt"
 CASE_BUNDLE_CASE_NAME = "case.json"
 CASE_BUNDLE_MANIFEST_NAME = "evidence-manifest.json"
@@ -159,6 +163,7 @@ class CaseService:
         self._storage = storage
         self._app_version = app_version
         self._ai_service: Any = None
+        self._correlation_service: Any = None
 
     # -- cases -----------------------------------------------------------
 
@@ -546,6 +551,7 @@ class CaseService:
             )
         ai_service = self._ai_service
         configured = bool(ai_service is not None and getattr(ai_service, "_provider", None))
+        correlations, correlation_summary = self._case_correlations(record.case_id)
         bookmarks = [_bookmark_to_dict(b) for b in self._cases.list_bookmarks(record.case_id)]
         notes = [_note_to_dict(n) for n in self._cases.list_notes(record.case_id)]
         tags = self._cases.list_tags(record.case_id)
@@ -567,6 +573,8 @@ class CaseService:
             anomaly_summaries=anomaly_summaries,
             postures=postures,
             graph_counts=sorted(graph_counts, key=lambda c: str(c["capture_id"])),
+            correlations=correlations,
+            correlation_summary=correlation_summary,
             bookmarks=bookmarks,
             notes=notes,
             tags=tags,
@@ -590,6 +598,26 @@ class CaseService:
     def attach_ai_service(self, ai_service: Any) -> None:
         """Provide the AI service for configured-provider reporting only."""
         self._ai_service = ai_service
+
+    def attach_correlation_service(self, correlation_service: Any) -> None:
+        """Provide the correlation service for report/export assembly.
+
+        Correlations are derived on demand from case evidence; attaching
+        the service keeps report and export assembly in one place without
+        a module-level import cycle.
+        """
+        self._correlation_service = correlation_service
+
+    def _case_correlations(self, case_id: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Correlations plus summary for reports/exports (never persisted)."""
+        service = self._correlation_service
+        if service is None:
+            return [], {"case_id": case_id, "capture_count": 0, "correlation_count": 0}
+        report = service.compute(case_id)
+        return (
+            [correlation.to_dict() for correlation in report.correlations],
+            report.to_summary(),
+        )
 
     # -- reports -----------------------------------------------------------
 
@@ -643,6 +671,8 @@ class CaseService:
             "tags": list(inputs.tags),
             "timeline": inputs.timeline,
             "reports": inputs.reports,
+            "correlations": inputs.correlations,
+            "correlation_summary": inputs.correlation_summary,
             "provenance": inputs.provenance,
         }
 
@@ -725,11 +755,14 @@ class CaseService:
         re-validated; invalid entries are skipped with warnings. The
         imported timeline is not replayed — a single ``case_imported``
         event starts a fresh local trail. AI observations are never
-        imported (interpretation is re-derived locally).
+        imported (interpretation is re-derived locally). Imported
+        correlations are validated for shape and then discarded:
+        correlations are always recomputed from local evidence, never
+        trusted from a bundle.
         """
         if not isinstance(document, dict):
             raise CaseValidationError("import document must be a JSON object")
-        if document.get("schema_version") != CASE_EXPORT_SCHEMA_VERSION:
+        if document.get("schema_version") not in SUPPORTED_IMPORT_SCHEMA_VERSIONS:
             raise CaseValidationError(
                 f"unsupported import schema_version: {document.get('schema_version')!r}"
             )
@@ -757,6 +790,11 @@ class CaseService:
             raise CaseValidationError("import document has an invalid tags section")
         if not isinstance(raw_bookmarks, list) or len(raw_bookmarks) > MAX_IMPORT_BOOKMARKS:
             raise CaseValidationError("import document has an invalid bookmarks section")
+        raw_correlations = document.get("correlations", [])
+        if raw_correlations is None:
+            raw_correlations = []
+        if not isinstance(raw_correlations, list):
+            raise CaseValidationError("import document has an invalid correlations section")
 
         record = self._cases.create_case(title, description, priority)
         if status != "OPEN":
@@ -816,6 +854,15 @@ class CaseService:
                 continue
             self._cases.add_bookmark(record.case_id, target_type, target_id, label, note)
             imported_bookmarks += 1
+        for entry in raw_correlations:
+            # Imported correlations are validated for shape and discarded:
+            # the case recomputes them from local evidence on demand.
+            if not isinstance(entry, dict) or not isinstance(entry.get("correlation_id"), str):
+                warnings.append("skipped a malformed imported correlation")
+        if raw_correlations:
+            warnings.append(
+                "imported correlations are not trusted; they will be recomputed from local evidence"
+            )
         self._cases.append_timeline(
             record.case_id,
             "case_imported",

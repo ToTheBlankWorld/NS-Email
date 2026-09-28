@@ -284,6 +284,40 @@ security score — summaries and reports quote the per-capture posture
 snapshots verbatim. Provenance sections are labeled "Technical
 provenance metadata" and are not legal chain-of-custody claims.
 
+## Multi-capture correlation (Stage 12)
+
+Correlations derive repeated structured observations across a case's
+captures — shared endpoints, hosts, certificates, TLS configurations,
+protocols, findings, anomaly bands, and session patterns. Fully
+offline, deterministic, and read-only. The workspace Correlations tab
+(`/cases/<case_id>`, tab `correlations`) offers the dense analyst
+table with filters, search, detail, session related-observations, and
+explicit AI questions.
+
+```bash
+# List correlations (filters: type, capture_id, protocol, endpoint,
+# certificate, finding, search, sort, limit, offset)
+curl "http://127.0.0.1:8000/api/cases/<case_id>/correlations?sort=type"
+curl http://127.0.0.1:8000/api/cases/<case_id>/correlations/summary
+curl http://127.0.0.1:8000/api/cases/<case_id>/correlations/<correlation_id>
+curl http://127.0.0.1:8000/api/cases/<case_id>/correlations/<correlation_id>/context
+
+# Sessions sharing evidence with one session (additive; session intact)
+curl http://127.0.0.1:8000/api/cases/<case_id>/sessions/<session_id>/related
+
+# Derived investigation graph (forensic vs correlation layers)
+curl http://127.0.0.1:8000/api/cases/<case_id>/graph
+
+# Explicit AI question about one correlation (minimized, never stored)
+curl -X POST http://127.0.0.1:8000/api/ai/query-correlation \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Explain the repeated certificate observations.",
+       "case_id": "<case_id>", "correlation_id": "<correlation_id>"}'
+```
+
+Correlation is not attribution: repeated evidence does not establish
+intent, ownership, or compromise, and no correlation score exists.
+
 
 ## Hardening and evaluation (Stage 10)
 
@@ -315,6 +349,7 @@ with an actionable, secret-free message.
 ```bash
 python -m scripts.evaluate --repeat 2       # ground-truth evaluation (exit 1 on regression)
 python -m scripts.evaluate_cases --repeat 2 # case workflow evaluation (exit 1 on regression)
+python -m scripts.evaluate_correlations --repeat 2  # correlation evaluation (exit 1)
 python -m scripts.benchmark --repeat 3      # performance baseline (synthetic fixtures)
 python -m scripts.demo                      # offline SIH demo (mock AI, real APIs)
 python -m scripts.demo --run-once           # CI-safe demo verification

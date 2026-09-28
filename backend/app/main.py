@@ -21,6 +21,7 @@ from app.routers import (
     anomalies,
     captures,
     cases,
+    correlations,
     findings,
     graph,
     health,
@@ -30,6 +31,7 @@ from app.routers import (
 )
 from app.services.analysis import CaptureAnalysisService
 from app.services.cases import CaseService
+from app.services.correlations import CorrelationService
 from app.services.ingestion import CaptureIngestionService
 from app.storage import CaptureStorage
 from app.store import SQLiteSessionStore
@@ -111,6 +113,13 @@ def _configure_services(app: FastAPI, settings: Settings) -> None:
         app_version=settings.app_version,
     )
     case_service.attach_ai_service(app.state.ai_service)
+    correlation_service = CorrelationService(
+        case_store=case_store,
+        registry=registry,
+        analysis=analysis_service,
+    )
+    app.state.correlation_service = correlation_service
+    case_service.attach_correlation_service(correlation_service)
     app.state.case_service = case_service
     app.state.settings = settings
 
@@ -145,6 +154,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(captures.router)
     app.include_router(cases.router)
+    app.include_router(correlations.router)
     app.include_router(sessions.router)
     app.include_router(findings.router)
     app.include_router(posture.router)
