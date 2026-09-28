@@ -1,277 +1,281 @@
-# NS-Email — SecureMailScope
+# 🛡️ SecureMailScope
 
-**AI-Assisted Cryptographic Security Posture Assessment for Secure Email Communications**
+### AI-Assisted Cryptographic Security Posture Assessment for Secure Email Communications
 
-NS-Email is a passive network forensic platform that reconstructs email traffic (SMTP, IMAP,
-POP3) from PCAP / PCAPNG captures and assesses how well that traffic was actually protected —
-TLS versions, cipher suites, key exchange, forward secrecy, STARTTLS usage, and X.509
-certificate validity — producing evidence-backed, prioritized security findings and reports.
+[![CI](https://github.com/ToTheBlankWorld/NS-Email/actions/workflows/ci.yml/badge.svg)](https://github.com/ToTheBlankWorld/NS-Email/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![Node](https://img.shields.io/badge/node-20%2B-green)](frontend/package.json)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+[![SQLite](https://img.shields.io/badge/store-SQLite-informational)](docs/architecture/README.md)
 
-Built for **Smart India Hackathon 2026** as an original research project on enterprise email
-cryptographic posture.
+> 🔎 A passive forensic platform for reconstructing email security sessions from PCAP evidence, evaluating TLS/X.509 posture, detecting behavioral anomalies, correlating multi-capture evidence, assisting analysts with grounded AI, and producing reproducible forensic reports.
 
-> **Status: Stage 14 — longitudinal security drift and regression analysis.**
-> Cases now answer how posture changed across observations: explicit
-> analyst-selected baselines, deterministic capture comparison
-> (posture, finding lifecycle, TLS/certificate/protocol/anomaly/
-> correlation dimensions), evidence-gated drift records with stable
-> ids, posture trends with quoted deltas, remediation regression
-> detection ("existing remediation may require review"), and
-> longitudinal case reports and exports. History is never rewritten —
-> drift is derived intelligence over immutable observations.
-> See [Development stages](#development-stages).
+SecureMailScope answers a question compliance scanners can't: **what actually happened to real email traffic on the wire** — reconstructed passively from captured packets, with every conclusion tied to forensic evidence.
 
 ---
 
-## The problem
+## ✨ Key Features
 
-Enterprises depend on email, but rarely have ground truth about how their email traffic is
-protected on the wire. Misconfigurations are invisible until they are exploited:
+| Capability | Description |
+| --- | --- |
+| 📦 PCAP Forensics | Validated PCAP/PCAPNG ingestion with SHA-256 identity, magic-byte checks, and deterministic capture ids |
+| 🔬 Protocol Reconstruction | TCP stream reassembly plus SMTP / IMAP / POP3 session forensics with STARTTLS tracking |
+| 🔐 TLS / X.509 Analysis | Versions, ciphers, key exchange, SNI/ALPN, certificate chains, validity, signatures, fingerprints |
+| 🛡️ Crypto Policy | 15 deterministic rules with severity, confidence, evidence references, and remediation guidance |
+| 📊 Security Posture | Explainable 0–100 score per capture with factors, host/protocol views, and priorities |
+| 🧠 Anomaly Detection | Local IsolationForest over session features — statistical outliers, never attack labels |
+| 🕸️ Evidence Graph | Interactive graph of sessions, certificates, TLS configurations, findings, and anomalies |
+| 🤖 AI Analyst | Evidence-grounded answers with citations; mock, Ollama, or OpenAI-compatible providers |
+| 📁 Case Management | Multi-capture investigations with notes, tags, bookmarks, timelines, and reports |
+| 🔗 Correlation | Deterministic shared-evidence relationships across a case's captures |
+| 🔧 Remediation | Analyst plans with an explicit state machine, ownership, and timeline |
+| 🔄 Verification | Evidence-based or manual verification of a rule against a later capture |
+| 📈 Drift Analysis | Baselines, posture trends, finding lifecycles, configuration drift, regression detection |
+| 📑 Reporting | Deterministic JSON / HTML / PDF reports for captures and cases, plus exports and bundles |
 
-- STARTTLS negotiated down, stripped, or offered but never enforced
-- Obsolete protocol versions (SSLv3, TLS 1.0/1.1) still accepted
-- Weak or non-forward-secret cipher suites
-- Expired, self-signed, mismatched, or weak-key X.509 certificates
-- Silent protocol downgrade behavior and anomalous TLS handshakes
+---
 
-Compliance scanners test *endpoints* on demand. NS-Email answers a different question:
-**what actually happened to real email traffic**, reconstructed passively from captured
-packets, with every conclusion tied to forensic evidence.
+## 🏗️ Security Pipeline
 
-## Vision
-
-A single analyst workstation that goes from raw capture to explainable report:
-
-```
-PCAP ingestion
-      ↓
-Protocol identification (SMTP / IMAP / POP3)
-      ↓
-TCP stream reconstruction
-      ↓
-Email session reconstruction
-      ↓
-STARTTLS detection
-      ↓
-TLS handshake reconstruction
-      ↓
-X.509 extraction
-      ↓
-Cryptographic analysis
-      ↓
-Rule-based findings  →  ML anomaly detection
-      ↓
-Risk prioritization
-      ↓
-Evidence graph
-      ↓
-AI-assisted explanation
-      ↓
-Dashboard  →  JSON / HTML / PDF forensic reports
+```mermaid
+flowchart TD
+    PCAP["PCAP / PCAPNG"] --> ING["Evidence Ingestion"]
+    ING --> TCP["TCP Reconstruction"]
+    TCP --> PROTO["SMTP / IMAP / POP3"]
+    PROTO --> TLS["TLS / X.509"]
+    TLS --> POL["Crypto Policy"]
+    POL --> POS["Security Posture"]
+    POS --> ANO["Anomaly Detection"]
+    ANO --> GRA["Evidence Graph"]
+    GRA --> AI["AI Analyst"]
+    AI --> WS["Analyst Workstation"]
+    WS --> CASE["Cases"]
+    CASE --> CORR["Correlation"]
+    CORR --> REM["Remediation"]
+    REM --> VER["Verification"]
+    VER --> DRIFT["Longitudinal Drift"]
+    DRIFT --> REP["Reports"]
 ```
 
-The pipeline above is the **target architecture**. Only the foundation (highlighted below)
-exists today.
+One FastAPI backend, one analysis engine, one Next.js frontend, one SQLite store — no microservices, no queues, easy to run locally and demonstrate. Details: [docs/architecture/README.md](docs/architecture/README.md).
 
-## Architecture
+---
 
-NS-Email is a deliberate, small monorepo — one FastAPI backend, one analysis engine, one
-Next.js frontend, SQLite persistence. No microservices, message queues, or distributed
-workers: the system must stay easy to run locally and easy to demonstrate.
+## 💡 Why SecureMailScope?
 
-```
-┌────────────────────────────┐
-│ frontend/  (Next.js, TS)   │  forensic workstation UI
-│  dashboard · empty states  │
-└──────────┬─────────────────┘
-           │ HTTPS (JSON)
-┌──────────▼─────────────────┐
-│ backend/app  (FastAPI)     │  REST API · ingestion surface · report surface
-└──────────┬─────────────────┘
-┌──────────▼─────────────────┐
-│ engine/  (Python)          │  passive forensic analysis
-│  core evidence models (now)│  ingestion · protocols · TLS · crypto (planned)
-└──────────┬─────────────────┘
-┌──────────▼─────────────────┐
-│ SQLite evidence store      │  JSON-serializable forensic records
-└────────────────────────────┘
-```
+- **Passive evidence, not active probing.** No logins, no test emails, no scanning — analysis reads captures you provide.
+- **Explainable by construction.** Every finding cites packets; every score shows its formula; the UI explains each calculation.
+- **Deterministic core.** Same evidence plus same policy yields byte-identical output. AI assists; it never decides.
+- **Grounded AI.** Minimized structured context, validated citations, explicit uncertainty — and a mock provider for fully offline work.
+- **Investigation workflow.** Cases, correlation, remediation, verification, and drift turn observations into tracked analyst action without rewriting history.
+- **Reproducible.** Deterministic reports, versioned exports, reproducible bundles, synthetic evaluations with hand-defined ground truth.
+- **Secure by design.** Untrusted-input handling, credential redaction, secret-free errors, prompt-injection defenses, no external enrichment by default.
 
-See [docs/architecture/README.md](docs/architecture/README.md) for system boundaries and the
-planned data flow, and [docs/development/SETUP.md](docs/development/SETUP.md) to run it locally.
+---
 
-## Technology stack
-
-| Layer       | Now (Stage 0)                          | Planned                                        |
-| ----------- | -------------------------------------- | ---------------------------------------------- |
-| Backend     | Python 3.12, FastAPI, Pydantic v2, Uvicorn | —                                          |
-| Engine      | Typed evidence models (Pydantic)       | tshark/PyShark/Scapy, `cryptography`, networkx |
-| ML          | —                                      | numpy, pandas, scikit-learn (anomaly analysis) |
-| Persistence | —                                      | SQLite (JSON-serializable evidence)            |
-| Frontend    | Next.js, TypeScript, Tailwind, shadcn/ui, Lucide | Motion (purposeful, data-driven animation) |
-| Tooling     | pytest, ruff, mypy                     | —                                              |
-
-Dependencies are added only when a stage actually needs them.
-
-## Development stages
-
-| Stage | Scope                                                        | Status     |
-| ----- | ------------------------------------------------------------ | ---------- |
-| 0     | Repository foundation, backend `/health`, evidence models, frontend shell | done |
-| 1     | Secure PCAP/PCAPNG evidence ingestion: validation, hashing, storage, registry, capture API | done |
-| 2     | TCP flow reconstruction, stream reassembly, SMTP/IMAP/POP3 session forensics | done |
-| 3     | TLS record/handshake parsing, version & cipher extraction, X.509 chain evidence | done |
-| 4     | Deterministic policy engine: cryptographic security findings with evidence, severity, remediation | done |
-| 5     | Explainable security posture: transparent scoring, factor/protocol/host aggregation, prioritization | done |
-| 6     | TLS behavioral anomaly detection (IsolationForest over session features) | done |
-| 7     | Forensic evidence graph and investigation intelligence | done |
-| 8     | Evidence-grounded AI forensic analyst (LLM provider abstraction, context builder, citations) | done |
-| 9     | Analyst workstation and forensic reporting (dashboards, graph frontend, JSON/HTML/PDF reports) | done |
-| 10    | Production hardening: deterministic evaluation, security regressions, limits, readiness, CI, demo | done |
-| 11    | Forensic case management: cases, analyst notes/tags/bookmarks, timeline, case reports, export/bundle, provenance | done |
-| 12    | Multi-capture correlation: shared-evidence relationships, investigation graph, session related-observations, report/export integration | done |
-| 13    | Remediation workflow: analyst plans, state machine, evidence-based verification, before/after comparison, report/export integration | done |
-| 14    | Longitudinal drift: observation snapshots, explicit baselines, deterministic comparison, posture trend, finding lifecycle, regression detection, drift APIs/workspace/reports/exports | **current** |
-| 15+   | Future work | planned |
-
-Each stage lands as its own reviewed, tested commit.
-
-## Current foundation
-
-- **Evidence ingestion (Stage 1)** — `POST /api/captures` accepts PCAP/PCAPNG uploads,
-  validates them (extension allow-list + magic-byte sniffing + tshark structural check when
-  available), streams a SHA-256 evidence hash, stores bytes under a deterministic
-  content-derived id (`capture_<hash-prefix>`), and registers them in a SQLite registry.
-  Duplicate evidence is detected by hash and deduplicated.
-- **Session forensics (Stage 2)** — `POST /api/captures/{id}/analyze` reconstructs
-  bidirectional TCP flows, reassembles streams (out-of-order, retransmissions, gaps, and
-  termination are tracked honestly), identifies SMTP/IMAP/POP3 with explainable evidence and
-  confidence, and records per-session timelines where every event cites the packets it was
-  observed in. STARTTLS negotiation is detected as advertised/requested/accepted with the
-  exact transition packet. Credential values are redacted before storage. Results are
-  served via `GET /api/captures/{id}/sessions` and `GET /api/sessions/{id}`.
-- **TLS evidence (Stage 3)** — where a session switches to TLS (STARTTLS boundary or
-  implicit-TLS port), the engine parses the handshake: negotiated version, selected and
-  offered cipher suites, key-exchange family, SNI and other hello extensions, and the
-  visible X.509 chain (`cryptography`-backed, chain position, fingerprints). TLS 1.3
-  encrypts certificates from the ServerHello onward — the evidence records that honestly
-  instead of pretending otherwise.
-- **Policy engine (Stage 4)** — 15 deterministic rules over the structured evidence:
-  deprecated TLS versions, unacceptable cipher-suite classes, prohibited key exchange and
-  missing forward secrecy, certificate validity (measured against the capture time), weak
-  keys, MD5/SHA-1 signatures, hostname/SAN mismatch, chain observations, STARTTLS gaps,
-  plaintext authentication, and incomplete handshakes. Each finding carries a deterministic
-  id, structured evidence references with packet numbers, confidence separate from
-  severity, remediation guidance, and documented standard references (e.g. RFC 8996,
-  RFC 7525). Findings are served via
-  `GET /api/captures/{id}/findings`, `GET /api/sessions/{id}/findings`, and
-  `GET /api/findings/{id}`.
-- **Security posture (Stage 5)** — every analysis produces an explainable posture
-  snapshot: 0-100 score, descriptive state (healthy → critical_exposure), overall
-  confidence, five correlated posture factors, per-protocol and per-host aggregation, and
-  a deterministic priority ranking — each element citing the findings it derives from. The
-  scoring formula (severity weights x confidence x prevalence, factor correlation) is
-  documented in ADR 005 and surfaced in the UI under "How is this calculated?".
-- **Behavioral anomalies (Stage 6)** — after deterministic analysis, an IsolationForest
-  model trained on the capture's own sessions identifies behavioral outliers. Feature
-  vectors are versioned, sanitized, and derived only from structured evidence — never
-  from raw payloads. Sessions below the minimum baseline size report
-  `insufficient_evidence`; model failures report `model_error`. Results are kept strictly
-  separate from Stage 4 findings and the Stage 5 posture score. All processing is local.
-- **AI forensic analyst (Stage 8)** — evidence-grounded AI assistant that consumes
-  structured investigation context (never raw evidence) and produces explainable
-  responses with observed/interpretation/uncertainty sections and evidence citations.
-  Provider abstraction supports OpenAI-compatible APIs and local models (Ollama);
-  a deterministic mock provider is used when no external provider is configured.
-  Prompt injection defense, citation validation, and credential redaction are built in.
-- **Analyst workstation and reporting (Stage 9)** — cohesive SOC-style workspace:
-  capture forensic dashboards, findings and anomaly workspaces with
-  filtering/sorting/deep links, an interactive evidence graph (React Flow,
-  deterministic layered layout, type filters, inspection panel), a session
-  investigation view (security summary, TLS, certificates, timeline, graph
-  context, AI panel), a report center, and deterministic JSON / HTML / PDF
-  forensic reports generated on demand from persisted evidence. Reports include
-  only validated AI observations, clearly labeled, with citation and uncertainty
-  preservation; every dynamic report value is escaped or sanitized.
-- **Backend** — FastAPI: health, capture ingestion/retrieval, analysis APIs, structured
-  error model, explicit CORS allow-list, pytest coverage.
-- **Case management (Stage 11)** — `POST/GET/PATCH/DELETE /api/cases` with capture
-  references (no data copied), analyst notes (untrusted, escaped, never sent to AI),
-  open-vocabulary tags, evidence bookmarks with deep links, an append-only
-  investigation timeline (kept separate from the forensic timeline), deterministic
-  case summaries (counts plus quoted per-capture posture — no case score), case-level
-  JSON/HTML/PDF reports, versioned JSON export, reproducible zip bundles with
-  `evidence-manifest.json` and technical   provenance metadata (labeled as such, never
-  as legal chain-of-custody), and bundle import that always creates a new case.
-- **Correlation (Stage 12)** — `GET /api/cases/{id}/correlations` with type/capture/
-  protocol/endpoint/certificate/finding filters, evidence-key search, and sorting;
-  counts-only summary; per-correlation context (related findings/anomalies, graph-node
-  references, timeline refs); session related-observations; a layered investigation
-  graph (`forensic` vs `correlation`); explicit ephemeral AI questions about one
-  correlation. Deterministic index-based engine over structured evidence only —
-  no attribution, no scores, no evidence mutation.
-- **Remediation (Stage 13)** — `POST /api/cases/{id}/remediations/from-finding`
-  (policy-baseline guidance preserved verbatim), explicit status state machine
-  (OPEN→PLANNED→IN_PROGRESS→COMPLETED, BLOCKED↔IN_PROGRESS, →CANCELLED), analyst
-  ownership, insertion-ordered remediation timeline, evidence-based verification
-  against an explicitly selected analyzed capture (VERIFIED/FAILED/INCONCLUSIVE
-  with neutral statements), quoted posture before/after, and manual
-  analyst-asserted verification. Findings are never mutated or deleted.
-- **Longitudinal drift (Stage 14)** — `GET /api/cases/{id}/observations` with
-  explicit baseline selection (`POST/GET/DELETE .../observations/baseline`),
-  consecutive-pair and analyst-chosen comparisons
-  (`GET/POST /api/cases/{id}/comparisons`), deterministic drift records
-  (`GET /api/cases/{id}/drift`, `/drift/summary`, `/drift/{id}`) with
-  `drift_<sha256…>` ids, posture trends quoting Stage 5 scores, finding
-  lifecycles (new/persistent/resolved/recurred/not_comparable), TLS/
-  certificate/protocol/anomaly/correlation change detection, remediation
-  regression views (`GET .../remediations/{id}/drift`), a case workspace
-  Drift tab, longitudinal report sections, and schema 1.3 exports. Drift is
-  derived from observed captures: it does not prove causality, and repeated
-  findings do not prove malicious activity.
-- **Engine** — typed, immutable, JSON-serializable evidence models plus the analysis
-  layers: packet source (pure-Python pcap/pcapng reader), flow grouping, stream reassembly,
-  protocol detection, and per-protocol session reconstructors.
-- **Frontend** — dark-first forensic workstation: capture upload, live backend status,
-  one-click capture analysis with real session counts, sessions table, and a session detail
-  view with a per-event timeline. No fake statistics, findings, or AI output.
-- **Docs** — architecture overview, setup guide, and architecture decision records
-  (`docs/decisions/001-…`, `002-…`).
-
-## Security principles
-
-NS-Email is a security tool, so it holds itself to the standard it assesses:
-
-- **PCAP files are untrusted input.** Captures are parsed, never executed; extracted content
-  is data, never code. No `eval`/`exec` on packet-derived data, ever.
-- **Filenames and payloads are never trusted** — validated, size-limited, and processed in
-  temporary directories with explicit filesystem boundaries.
-- **No arbitrary filesystem access** through the API; no shell commands derived from user input.
-- **Subprocess use (e.g., tshark) must be argument-array based** with explicit executables.
-- **No secrets in source.** `.env` files, keys, credentials, and capture files are excluded
-  from version control (see `.gitignore`).
-- **Typed evidence, immutable once recorded** — forensic records reject unknown fields and
-  mutation after creation.
-
-## Local development
-
-Prerequisites: Python 3.12+, Node.js 20+ (tshark is **not** required until the
-packet-analysis stages).
+## 🚀 Quick Start
 
 ```bash
+git clone https://github.com/ToTheBlankWorld/NS-Email.git
+cd NS-Email
+
 # Backend
 python -m venv .venv
-.venv/bin/pip install -e ".[dev]"        # Windows: .venv\Scripts\pip ...
-.venv/bin/uvicorn app.main:app --reload --port 8000   # → http://127.0.0.1:8000/health
+source .venv/bin/activate          # Windows: .venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+uvicorn app.main:app --reload --port 8000   # → http://127.0.0.1:8000/health
 
-# Frontend
+# Frontend (new terminal)
 cd frontend
 npm install
-npm run dev                              # → http://localhost:3000
+npm run dev                        # → http://localhost:3000
 ```
 
-Full instructions (including Windows notes): [docs/development/SETUP.md](docs/development/SETUP.md).
+Or run everything containerized:
 
-## License
+```bash
+docker compose up --build          # backend :8000 · frontend :3000
+```
+
+Offline demo (mock AI, synthetic fixtures, real APIs):
+
+```bash
+python -m scripts.demo --run-once
+```
+
+> 📖 Full operational manual — installation, configuration, analysis workflows, cases, AI, reports, drift, evaluations, Docker, troubleshooting: **[docs/USER_GUIDE.md](docs/USER_GUIDE.md)**
+
+---
+
+## 🔄 Project Workflow
+
+```mermaid
+flowchart LR
+    U["Upload PCAP"] --> A["Analyze"]
+    A --> I["Inspect"]
+    I --> C["Correlate"]
+    C --> INV["Investigate"]
+    INV --> R["Remediate"]
+    R --> V["Verify"]
+    V --> D["Track Drift"]
+    D --> REP["Report"]
+```
+
+Upload a capture → analyze → inspect sessions, findings, posture, and certificates → attach captures to a case → correlate shared evidence → investigate with AI assistance → plan remediation → verify against a later capture → track drift across observations → report, export, and bundle.
+
+---
+
+## ✅ Capability Matrix
+
+| Area | Supported |
+| --- | --- |
+| PCAP / PCAPNG | ✅ |
+| SMTP | ✅ |
+| IMAP | ✅ |
+| POP3 | ✅ |
+| STARTTLS negotiation | ✅ |
+| TLS handshake analysis | ✅ |
+| X.509 certificates | ✅ |
+| Policy findings (15 rules) | ✅ |
+| Security posture | ✅ |
+| ML anomaly detection | ✅ |
+| Evidence graph | ✅ |
+| AI analyst (mock / Ollama / OpenAI-compatible) | ✅ |
+| Case management | ✅ |
+| Multi-capture correlation | ✅ |
+| Remediation workflow | ✅ |
+| Evidence-based verification | ✅ |
+| Longitudinal drift | ✅ |
+| JSON report | ✅ |
+| HTML report | ✅ |
+| PDF report | ✅ |
+| Case export / bundle / import | ✅ |
+| Offline demo | ✅ |
+| Docker deployment | ✅ |
+
+---
+
+## 🧰 Tech Stack
+
+| Layer | Technologies |
+| --- | --- |
+| Backend | Python 3.12, FastAPI, Pydantic v2, Uvicorn |
+| Engine | Pure-Python packet reader, optional tshark inspection, `cryptography`, scikit-learn (IsolationForest), fpdf2 (PDF) |
+| Frontend | Next.js, TypeScript, Tailwind CSS, shadcn/ui, Lucide, React Flow (`@xyflow/react`) |
+| Persistence | SQLite (registry, sessions, posture, cases, remediations, baselines) |
+| Testing | pytest, ruff, mypy (strict), ESLint, `tsc --noEmit` |
+| Containers / CI | Docker, Docker Compose, GitHub Actions |
+
+---
+
+## 🤖 Evidence-Grounded AI
+
+The AI analyst explains evidence — it never creates it. Deterministic findings, posture, and anomalies remain authoritative; AI output is assistive interpretation with observed/interpretation/uncertainty sections and validated citations. Context is minimized and sanitized (no raw PCAP, no credentials, no message bodies, no analyst notes), and a deterministic **mock provider** keeps testing, evaluation, CI, and the demo fully offline. With no provider configured, the system reports `not_configured` and everything else works unchanged.
+
+---
+
+## 🔐 Security & Privacy
+
+- Passive analysis of analyst-supplied captures only — no live interception, no server logins.
+- Filenames, payloads, and uploads treated as untrusted: validation, size limits, staging directories, fixed-subprocess invocation, no `eval`/`exec` on packet data.
+- Credentials redacted before storage; message bodies and raw payloads excluded from APIs, reports, exports, bundles, and AI context.
+- API keys via environment only — never in source, logs, errors, or frontend traffic.
+- Structured errors without SQL, paths, or tracebacks; reports escape/sanitize all dynamic content.
+- Prompt-injection defenses, citation validation, and analyst-note isolation around every AI call; no external enrichment by default.
+
+---
+
+## 📏 Evaluation
+
+Deterministic harnesses over synthetic fixtures with hand-defined ground truth (`python -m scripts.evaluate* --repeat 2`), a machine-local performance baseline (`python -m scripts.benchmark`), golden regression tests, and an offline mock-AI demo — all gated in CI.
+
+> Controlled synthetic evaluation verifies specified behavior and guards regressions. It is **not** a real-world accuracy benchmark, and no detection rate is claimed. Full results: [docs/evaluation/README.md](docs/evaluation/README.md).
+
+---
+
+## 📍 Project Status
+
+| Stage | Capability | Status |
+| --- | --- | --- |
+| 0 | Repository foundation, `/health`, evidence models, frontend shell | ✅ |
+| 1 | Secure PCAP/PCAPNG ingestion | ✅ |
+| 2 | TCP reconstruction, SMTP/IMAP/POP3 forensics | ✅ |
+| 3 | TLS handshake parsing, X.509 evidence | ✅ |
+| 4 | Deterministic crypto policy engine (15 rules) | ✅ |
+| 5 | Explainable security posture | ✅ |
+| 6 | Behavioral anomaly detection | ✅ |
+| 7 | Forensic evidence graph | ✅ |
+| 8 | Evidence-grounded AI analyst | ✅ |
+| 9 | Analyst workstation and reporting | ✅ |
+| 10 | Production hardening and evaluation | ✅ |
+| 11 | Forensic case management | ✅ |
+| 12 | Multi-capture correlation | ✅ |
+| 13 | Remediation and verification | ✅ |
+| 14 | Longitudinal security drift | ✅ |
+
+---
+
+## 📚 Documentation
+
+| Document | Contents |
+| --- | --- |
+| [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Complete analyst manual: install → analyze → investigate → report |
+| [docs/development/SETUP.md](docs/development/SETUP.md) | Setup reference: prerequisites, env vars, endpoints, Docker, CI |
+| [docs/architecture/README.md](docs/architecture/README.md) | System boundaries, components, data flows |
+| [docs/evaluation/README.md](docs/evaluation/README.md) | Evaluation scope, results, reproducibility |
+| [docs/decisions/](docs/decisions/001-capture-evidence-ingestion.md) | Architecture decision records (ADR 001–014, except 007) |
+
+---
+
+## 🗂️ Repository Structure
+
+```
+NS-Email/
+├── backend/app/        # FastAPI service (routers, services, stores)
+├── engine/             # Forensic analysis library (ingestion → drift)
+├── frontend/           # Next.js analyst workstation
+├── scripts/            # Fixtures, evaluations, benchmark, demo, smokes
+├── backend/tests/      # API and workflow tests
+├── engine/tests/       # Engine unit tests
+├── docs/               # User guide, setup, architecture, evaluation, ADRs
+├── data/               # Default evidence storage root (git-ignored content)
+├── deploy/             # Deployment assets
+├── Dockerfile.backend / Dockerfile.frontend / docker-compose.yml
+└── pyproject.toml      # Python project, pytest/ruff/mypy configuration
+```
+
+---
+
+## ⚠️ Limitations
+
+- Passive visibility: only what the capture contains can be analyzed.
+- TLS 1.3 encrypts certificates onward from ServerHello; payloads are never decrypted.
+- Anomalies are statistical deviations from capture-local baselines — not attack labels.
+- AI is assistive and can be wrong; deterministic findings always win.
+- Synthetic evaluation says nothing about real-world detection rates.
+- Verification absence in one capture never proves global security; drift never proves causality.
+- Provenance metadata is technical, not a legal chain-of-custody claim.
+
+Details: [docs/USER_GUIDE.md](docs/USER_GUIDE.md#32-limitations) and the [ADRs](docs/decisions/001-capture-evidence-ingestion.md).
+
+---
+
+## 🛠️ Development
+
+```bash
+python -m pytest                        # backend + engine tests
+python -m ruff check backend engine scripts
+python -m ruff format --check backend engine scripts
+python -m mypy                          # strict type check
+cd frontend && npm run typecheck && npm run lint && npm run build
+python -m scripts.evaluate_drift --repeat 2
+python -m scripts.demo --run-once
+```
+
+POSIX shortcut: `make check` (test + lint + typecheck + frontend build). CI gates every change on tests, lint, format, strict mypy, the evaluation suites, demo verification, and frontend typecheck/lint/build.
+
+---
+
+## 📄 License
 
 [MIT](LICENSE) — original code, no third-party sources incorporated.
